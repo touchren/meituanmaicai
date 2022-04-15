@@ -233,9 +233,9 @@ const submit_order = (count) => {
 
     sleep(1200);
 
-    let retry_button = textMatches(/(我知道了|返回购物车)/).findOne();
-    if (retry_button.exist()) {
-      retry_button.parent().click();
+    let retry_button = textMatches(/(我知道了|返回购物车)/);
+    if (retry_button.exists()) {
+      retry_button.findOne().parent().click();
       sleep(300);
     } else {
       sleep(1000);
