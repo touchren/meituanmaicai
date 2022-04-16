@@ -152,10 +152,18 @@ const pay = () => {
   if (textStartsWith("立即支付").exists()) {
     textStartsWith("立即支付").findOne().parent().click();
     musicNotify();
+    confirm_to_pay();
+  }
+};
+
+const confirm_to_pay = () => {
+  if (textStartsWith("免密支付").exists()) {
+    textStartsWith("免密支付").findOne().parent().click();
   }
 };
 
 const selectTime = (countT, status) => {
+  click_i_know();
   //选择送达时间
   textStartsWith("送达时间").findOne().parent().click();
   var selectedTime = null;
@@ -210,19 +218,46 @@ const selectTime = (countT, status) => {
       pay();
     }
   } else {
-    log("没有可用时间段")
+    log("没有可用时间段");
     countT = countT + 1;
     if (countT > 18000) {
       toast("抢菜选择时间失败");
       exit;
     }
     sleep(100);
-    log("开始重新选择时间")
+    log("开始重新选择时间");
     selectTime(countT, false);
   }
 };
 
+const check_all = () => {
+  log("判断购物车是否已经全选");
+  let radio_checkall = className("android.widget.ImageView").depth(22);
+  if (radio_checkall.exists()) {
+    let is_checked = radio_checkall.findOne().checked();
+    log("购物车当前全选中:" + is_checked);
+    if (!is_checked) {
+      log("全选所有商品");
+      radio_checkall.findOne().parent().click();
+      sleep(300);
+    }
+  }
+};
+
+const click_i_know = () => {
+  // 只要页面有 我知道了等按钮, 都盲点
+  let retry_button = textMatches(/(我知道了|返回购物车)/);
+  if (retry_button.exists()) {
+    // 1. 配送运力已约满
+    // 2. 门店已打烊
+    // 3. 订单已约满
+    retry_button.findOne().parent().click();
+    sleep(300);
+  }
+};
+
 const submit_order = (count) => {
+  click_i_know();
   count = count + 1;
   log("抢菜第" + count + "次尝试");
   if (count % 5 == 1) {
@@ -234,6 +269,8 @@ const submit_order = (count) => {
     reload_mall_cart();
     submit_order(count);
   } else {
+    // 全选购物车内有货商品
+    check_all();
     log("开始结算");
     let submit_btn = textStartsWith("结算").findOne();
     submit_btn.parent().click(); //结算按钮点击
@@ -247,24 +284,23 @@ const submit_order = (count) => {
       // 3. 订单已约满
       retry_button.findOne().parent().click();
       sleep(300);
+
+      if (count > 18000) {
+        toast("抢菜失败");
+        exit;
+      }
+      submit_order(count);
     } else {
       sleep(1000);
       if (textStartsWith("放弃机会").exists()) {
         toast("跳过加购");
         textStartsWith("放弃机会").findOne().parent().click();
-        selectTime(0, false);
+        sleep(300);
       } else {
-        log("存在其他情况");
+        log("正常提交订单");
       }
+      selectTime(0, false);
     }
-
-    sleep(100);
-
-    if (count > 18000) {
-      toast("抢菜失败");
-      exit;
-    }
-    submit_order(count);
   }
 };
 
@@ -288,7 +324,7 @@ const start = () => {
 
   to_mall_cart();
   log("等待购物车加载完成");
-  sleep(3000); //等待购物车加载完成
+  sleep(3000);
   submit_order(0);
 };
 
