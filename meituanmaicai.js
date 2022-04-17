@@ -241,15 +241,19 @@ const selectTime = (countT, status) => {
 };
 
 const check_all = () => {
-  log("判断购物车是否已经全选");
-  let radio_checkall = className("android.widget.ImageView").depth(22);
+  log("判断购物车是否已经选中商品");  
+  let radio_checkall = className("android.widget.ImageView").depth(22);  
   if (radio_checkall.exists()) {
-    let is_checked = radio_checkall.findOne().checked();
-    log("购物车当前全选中:" + is_checked);
+    log(radio_checkall.findOne());
+    // 选中的情况下是 结算(数量)
+    let is_checked = (textStartsWith("结算").findOne().text()!="结算");
+    log("购物车当前已选择商品:" + is_checked);
     if (!is_checked) {
       log("全选所有商品");
       radio_checkall.findOne().parent().click();
-      sleep(300);
+      sleep(500);
+    }else{
+      log(textStartsWith("结算").findOne().text());
     }
   }
 };
@@ -270,7 +274,7 @@ const submit_order = (count) => {
   click_i_know();
   count = count + 1;
   log("抢菜第" + count + "次尝试");
-  if (count % 5 == 1) {
+  if (count == 1 || count % 5 == 0) {
     toast("抢菜第" + count + "次尝试");
   }
   //美团买菜 结算按钮无id
@@ -282,9 +286,8 @@ const submit_order = (count) => {
     // 全选购物车内有货商品
     check_all();
     log("开始结算");
-    let submit_btn = textStartsWith("结算").findOne();
+    let submit_btn = textStartsWith("结算").findOne();    
     submit_btn.parent().click(); //结算按钮点击
-
     sleep(1200);
 
     let retry_button = textMatches(/(我知道了|返回购物车)/);
@@ -295,7 +298,8 @@ const submit_order = (count) => {
       retry_button.findOne().parent().click();
       sleep(300);
 
-      if (count > 18000) {
+      // 220417 , 目前单次约2.5秒, 2小时约2880次
+      if (count > 3000) {
         toast("抢菜失败");
         exit;
       }
@@ -381,4 +385,6 @@ engines.all().map((ScriptEngine) => {
   }
 });
 
+device.wakeUp();
+sleep(100);
 start();
