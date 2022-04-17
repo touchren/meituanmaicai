@@ -107,7 +107,8 @@ function bezierCreate(x1, y1, x2, y2, x3, y3, x4, y4) {
 }
 
 const musicNotify = () => {
-  const m = "/storage/emulated/0/Download/心如止水.mp3";
+  // 心如止水
+  const m = "/storage/emulated/0/Download/success.mp3";
   media.playMusic(m);
   sleep(media.getMusicDuration());
 };

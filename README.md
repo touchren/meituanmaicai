@@ -3,6 +3,11 @@
 
 使用教程可参考: https://github.com/qulingyuan/robVeg
 
+补充说明:
+1. 在手机`/Download`目录下放置一首`success.mp3`的歌曲(完整路径: `/storage/emulated/0/Download/success.mp3`), 抢单成功的时候会播放音乐提醒, **15分钟内支持**
+2. 按`音量+`键手工停止脚本
+
+
 参考代码:
 * autojs教程 http://keep.ipromiseyourlife.com/2019/06/27/auto-js%E7%9A%84%E4%BD%BF%E7%94%A8%E4%BB%A5%E5%8F%8A%E8%96%85%E8%85%BE%E8%AE%AF%E7%BE%8A%E6%AF%9B%E6%8F%92%E4%BB%B6%E7%A4%BA%E4%BE%8B/
 * 下拉刷新代码参考 https://www.d1blog.com/autojs/1752.html
