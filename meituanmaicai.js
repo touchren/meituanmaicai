@@ -7,10 +7,10 @@
  */
 function randomSwipe(sx, sy, ex, ey) {
   //设置随机滑动时长范围
-  var timeMin = 300;
-  var timeMax = 800;
+  var timeMin = 200;
+  var timeMax = 500;
   //设置控制点极限距离
-  var leaveHeightLength = 500;
+  var leaveHeightLength = 300;
 
   //根据偏差距离，应用不同的随机方式
   if (Math.abs(ex - sx) > Math.abs(ey - sy)) {
@@ -41,9 +41,9 @@ function randomSwipe(sx, sy, ex, ey) {
   var time = [0, random(timeMin, timeMax)];
   var track = bezierCreate(sx, sy, x2, y2, x3, y3, ex, ey);
 
-  log("随机控制点A坐标：" + x2 + "," + y2);
-  log("随机控制点B坐标：" + x3 + "," + y3);
-  log("随机滑动时长：" + time[1]);
+  //log("随机控制点A坐标：" + x2 + "," + y2);
+  //log("随机控制点B坐标：" + x3 + "," + y3);
+  //log("随机滑动时长：" + time[1]);
   //log("track" + track)
 
   //滑动
@@ -142,24 +142,33 @@ const to_mall_cart = () => {
 const reload_mall_cart = () => {
   // 切换标签页面
   log("重新加载购物车");
-  randomSwipe(550, 700, 600, 1100);
+  randomSwipe(460, 300, 500, 700);
   //to_mine();
   //sleep(5000);
   //to_mall_cart();
-  sleep(3000);
+  sleep(2000);
 };
 
 const pay = () => {
+  click_i_know();
   if (textStartsWith("立即支付").exists()) {
     textStartsWith("立即支付").findOne().parent().click();
     musicNotify();
+    sleep(300);
     confirm_to_pay();
   }
 };
 
 const confirm_to_pay = () => {
   if (textStartsWith("免密支付").exists()) {
-    textStartsWith("免密支付").findOne().parent().click();
+    // TODO 220417 继续调试, 后续考虑直接支付
+    // textStartsWith("免密支付").findOne().parent().click();
+    log("下单成功");
+    musicNotify();
+  } else {
+    log("下单失败, 马上重试");
+    sleep(300);
+    pay();
   }
 };
 
