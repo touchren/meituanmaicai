@@ -1,5 +1,7 @@
 # meituanmaicai
-美团买菜Autojs,在自动下单的基础上,增加捡漏的功能
+* 适配`美团买菜 5.32.10`, 需要在`Auto.js 4.1.1 Alpha2` 下运行
+* 适配机型: 三星Note9
+* 在`zgl018`脚本(自动下单)的基础上, 主要增加了捡漏的功能, 其他细节进行了优化
 
 使用教程可参考: https://github.com/qulingyuan/robVeg
 
