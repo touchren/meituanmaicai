@@ -282,12 +282,20 @@ const click_i_know = () => {
 };
 
 const submit_order = (count) => {
+  // 220417 , 目前单次约2.5秒, 2小时约2880次
+  // 循环调用约2157次后, 堆栈达到1040KB,导致程序中止
+  if (count > 500) {
+    // 大约每半小时休息几分钟
+    toastLog("本轮捡漏没有成功, 稍后重新开始");
+    return;
+  }
   click_i_know();
   count = count + 1;
   log("抢菜第" + count + "次尝试");
   if (count == 1 || count % 5 == 0) {
     toast("抢菜第" + count + "次尝试");
   }
+  
   //美团买菜 结算按钮无id
   if (!textStartsWith("结算").exists()) {
     log("未找到结算按钮，刷新页面");
@@ -315,12 +323,11 @@ const submit_order = (count) => {
         retry_button.findOne().parent().click();
         sleep(300);
 
-        // 220417 , 目前单次约2.5秒, 2小时约2880次
-        if (count > 3000) {
-          toast("抢菜失败");
-          exit;
+        if (count > 15000000) {
+          // exit;
+        } else {
+          submit_order(count);
         }
-        submit_order(count);
       } else {
         sleep(1000);
         if (textStartsWith("放弃机会").exists()) {
@@ -414,4 +421,12 @@ engines.all().map((ScriptEngine) => {
 
 device.wakeUp();
 sleep(100);
-start();
+let times = 0;
+while (times < 10) {
+  log("开始第" + times + "轮抢菜");
+  times++;
+  start();
+  // 休息90秒
+  sleep(90 * 1000);
+}
+log("程序正常结束");
