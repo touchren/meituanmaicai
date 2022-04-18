@@ -151,25 +151,36 @@ const pay = () => {
   click_i_know();
   if (textStartsWith("立即支付").exists()) {
     textStartsWith("立即支付").findOne().parent().click();
-    musicNotify();
+    // musicNotify();
     sleep(300);
     confirm_to_pay();
-    sleep(3000);
-    if (textStartsWith("立即支付").exists()) {
-      log("异常: 还停留在立即支付页面");
-      pay();
-    }
+    // sleep(3000);
+    // if (textStartsWith("立即支付").exists()) {
+    //   log("异常: 还停留在立即支付页面");
+    //   pay();
+    // }
   } else {
     log("TODO异常: 没有找到支付按钮");
   }
 };
 
 const confirm_to_pay = () => {
+  click_i_know();
   if (textStartsWith("免密支付").exists()) {
     // TODO 220417 继续调试, 后续考虑直接支付
-    // textStartsWith("免密支付").findOne().parent().click();
-    log("下单成功");
+    toastlog("已确认支付成功, 播放音乐");
     musicNotify();
+    // 15分钟内支付即可, 为了防止误操作, 1分钟之后点击付款
+    sleep(60 * 1000);
+    textStartsWith("免密支付").findOne().parent().click();
+    sleep(random(500, 1 * 1000));
+    if (textStartsWith("成功").exists()) {      
+      // 等待2分钟
+      sleep(120 * 1000);
+    } else {
+      log("异常: 没有支付成功, 重新支付");
+      confirm_to_pay();
+    }
   } else {
     log("下单失败, 马上重试");
     sleep(300);
@@ -230,7 +241,7 @@ const selectTime = (countT, status) => {
     } else {
       status = true;
       // 临时测试, 关闭支付
-      // pay();
+      pay();
       // 可能还会失败
       sleep(3000);
       if (textStartsWith("送达时间").exists()) {
@@ -295,7 +306,7 @@ const submit_order = (count) => {
   if (count == 1 || count % 5 == 0) {
     toast("抢菜第" + count + "次尝试");
   }
-  
+
   //美团买菜 结算按钮无id
   if (!textStartsWith("结算").exists()) {
     log("未找到结算按钮，刷新页面");
@@ -422,11 +433,13 @@ engines.all().map((ScriptEngine) => {
 device.wakeUp();
 sleep(100);
 let times = 0;
-while (times < 10) {
-  log("开始第" + times + "轮抢菜");
+while (times < 5) {  
   times++;
+  log("开始第" + times + "轮抢菜");
   start();
-  // 休息90秒
-  sleep(90 * 1000);
+  let randomSleep = random(30 * 1000, 90 * 1000);
+  log("第" + times + "轮抢菜执行结束, 休息[" + randomSleep + "]ms");
+  // 随机休息30-90秒
+  sleep(randomSleep);
 }
 log("程序正常结束");
