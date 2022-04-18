@@ -142,7 +142,12 @@ const to_mall_cart = () => {
 const reload_mall_cart = () => {
   // 切换标签页面
   log("重新加载购物车");
-  randomSwipe(460, 300, 500, 700);
+  randomSwipe(
+    460 + random(0, 100),
+    300 + random(0, 100),
+    500 + random(0, 100),
+    800 + random(0, 100)
+  );
   sleep(2000);
 };
 
@@ -174,7 +179,7 @@ const confirm_to_pay = () => {
     sleep(60 * 1000);
     textStartsWith("免密支付").findOne().parent().click();
     sleep(random(500, 1 * 1000));
-    if (textStartsWith("成功").exists()) {      
+    if (textStartsWith("成功").exists()) {
       // 等待2分钟
       sleep(120 * 1000);
     } else {
@@ -433,7 +438,7 @@ engines.all().map((ScriptEngine) => {
 device.wakeUp();
 sleep(100);
 let times = 0;
-while (times < 5) {  
+while (times < 5) {
   times++;
   log("开始第" + times + "轮抢菜");
   start();
