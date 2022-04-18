@@ -143,19 +143,24 @@ const reload_mall_cart = () => {
   // 切换标签页面
   log("重新加载购物车");
   randomSwipe(460, 300, 500, 700);
-  //to_mine();
-  //sleep(5000);
-  //to_mall_cart();
   sleep(2000);
 };
 
 const pay = () => {
+  log("准备点击[立即支付]");
   click_i_know();
   if (textStartsWith("立即支付").exists()) {
     textStartsWith("立即支付").findOne().parent().click();
     musicNotify();
     sleep(300);
     confirm_to_pay();
+    sleep(3000);
+    if (textStartsWith("立即支付").exists()) {
+      log("异常: 还停留在立即支付页面");
+      pay();
+    }
+  } else {
+    log("TODO异常: 没有找到支付按钮");
   }
 };
 
@@ -213,7 +218,6 @@ const selectTime = (countT, status) => {
     log("选择可用时间");
     selectedTime.parent().click();
     sleep(50);
-
     // 判断是否提示运力已满
     if (textStartsWith("我知道了").exists()) {
       textStartsWith("我知道了").findOne().parent().click();
@@ -225,7 +229,14 @@ const selectTime = (countT, status) => {
       }
     } else {
       status = true;
-      pay();
+      // 临时测试, 关闭支付
+      // pay();
+      // 可能还会失败
+      sleep(3000);
+      if (textStartsWith("送达时间").exists()) {
+        log("异常: 支付失败, 开始重新选择时间");
+        selectTime(countT, false);
+      }
     }
   } else {
     log("没有可用时间段");
@@ -241,19 +252,19 @@ const selectTime = (countT, status) => {
 };
 
 const check_all = () => {
-  log("判断购物车是否已经选中商品");  
-  let radio_checkall = className("android.widget.ImageView").depth(22);  
+  log("判断购物车是否已经选中商品");
+  let radio_checkall = className("android.widget.ImageView").depth(22);
   if (radio_checkall.exists()) {
-    log(radio_checkall.findOne());
+    // log(radio_checkall.findOne());
     // 选中的情况下是 结算(数量)
-    let is_checked = (textStartsWith("结算").findOne().text()!="结算");
+    let is_checked = textStartsWith("结算").findOne().text() != "结算";
     log("购物车当前已选择商品:" + is_checked);
     if (!is_checked) {
       log("全选所有商品");
       radio_checkall.findOne().parent().click();
       sleep(500);
-    }else{
-      log(textStartsWith("结算").findOne().text());
+    } else {
+      // 已经选中了商品
     }
   }
 };
@@ -285,35 +296,51 @@ const submit_order = (count) => {
   } else {
     // 全选购物车内有货商品
     check_all();
-    log("开始结算");
-    let submit_btn = textStartsWith("结算").findOne();    
-    submit_btn.parent().click(); //结算按钮点击
-    sleep(1200);
-
-    let retry_button = textMatches(/(我知道了|返回购物车)/);
-    if (retry_button.exists()) {
-      // 1. 配送运力已约满
-      // 2. 门店已打烊
-      // 3. 订单已约满
-      retry_button.findOne().parent().click();
-      sleep(300);
-
-      // 220417 , 目前单次约2.5秒, 2小时约2880次
-      if (count > 3000) {
-        toast("抢菜失败");
-        exit;
+    // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
+    if (textStartsWith("结算").exists()) {
+      log("开始结算:" + textStartsWith("结算").findOne().text());
+      let item = className("android.widget.TextView").depth(30);
+      if (item.exists()) {
+        log("第一件商品:" + item.findOne().text());
       }
-      submit_order(count);
-    } else {
-      sleep(1000);
-      if (textStartsWith("放弃机会").exists()) {
-        toast("跳过加购");
-        textStartsWith("放弃机会").findOne().parent().click();
+      let submit_btn = textStartsWith("结算").findOne();
+      submit_btn.parent().click(); //结算按钮点击
+      sleep(1200);
+
+      let retry_button = textMatches(/(我知道了|返回购物车)/);
+      if (retry_button.exists()) {
+        // 1. 配送运力已约满
+        // 2. 门店已打烊
+        // 3. 订单已约满
+        retry_button.findOne().parent().click();
         sleep(300);
+
+        // 220417 , 目前单次约2.5秒, 2小时约2880次
+        if (count > 3000) {
+          toast("抢菜失败");
+          exit;
+        }
+        submit_order(count);
       } else {
-        log("正常提交订单");
+        sleep(1000);
+        if (textStartsWith("放弃机会").exists()) {
+          toast("跳过加购");
+          textStartsWith("放弃机会").findOne().parent().click();
+          sleep(300);
+        } else {
+          log("正常提交订单");
+        }
+        selectTime(0, false);
+        // 增加容错机制,
+        sleep(3000);
+        if (textStartsWith("购物车").exists()) {
+          log("异常: 还停留在购物车页面");
+          submit_order(count);
+        }
       }
-      selectTime(0, false);
+    } else {
+      // 已经没有结算按钮了, 重试
+      submit_order(count);
     }
   }
 };
@@ -338,7 +365,7 @@ const start = () => {
 
   to_mall_cart();
   log("等待购物车加载完成");
-  sleep(3000);
+  sleep(2000);
   submit_order(0);
 };
 
@@ -378,7 +405,7 @@ function kill_app(packageName) {
   }
 }
 
-// 调试期间临时使用
+// 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
   if (engines.myEngine().toString() !== ScriptEngine.toString()) {
     ScriptEngine.forceStop();
