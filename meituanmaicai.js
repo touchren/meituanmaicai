@@ -165,7 +165,9 @@ const pay = () => {
     //   pay();
     // }
   } else {
-    log("TODO异常: 没有找到支付按钮");
+    log("TODO异常: 没有找到支付按钮, 稍后重试");
+    sleep(500);
+    pay();
   }
 };
 
@@ -233,19 +235,19 @@ const selectTime = (countT, status) => {
   if (selectedTime != null) {
     log("选择可用时间");
     selectedTime.parent().click();
-    sleep(50);
+    sleep(300);
     // 判断是否提示运力已满
     if (textStartsWith("我知道了").exists()) {
       textStartsWith("我知道了").findOne().parent().click();
-      sleep(50);
+      sleep(150);
       if (textStartsWith("送达时间").exists()) {
         selectTime(countT, false);
       } else {
         selectTime(countT, false);
       }
     } else {
+      sleep(100);
       status = true;
-      // 临时测试, 关闭支付
       pay();
       // 可能还会失败
       sleep(3000);
@@ -307,9 +309,9 @@ const submit_order = (count) => {
   }
   click_i_know();
   count = count + 1;
-  log("抢菜第" + count + "次尝试");
+  log("抢菜第" + times + "-" + count + "次");
   if (count == 1 || count % 5 == 0) {
-    toast("抢菜第" + count + "次尝试");
+    toast("抢菜第" + times + "轮第" + count + "次");
   }
 
   //美团买菜 结算按钮无id
@@ -321,7 +323,8 @@ const submit_order = (count) => {
     // 全选购物车内有货商品
     check_all();
     // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
-    if (textStartsWith("结算").exists()) {
+    // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
+    if (textStartsWith("结算(").exists()) {
       log("开始结算:" + textStartsWith("结算").findOne().text());
       let item = className("android.widget.TextView").depth(30);
       if (item.exists()) {
@@ -351,7 +354,7 @@ const submit_order = (count) => {
           textStartsWith("放弃机会").findOne().parent().click();
           sleep(300);
         } else {
-          log("正常提交订单");
+          toastLog("正常提交订单");
         }
         selectTime(0, false);
         // 增加容错机制,
@@ -404,6 +407,7 @@ function kill_app(packageName) {
   app.openAppSetting(name);
   text(app.getAppName(name)).waitFor();
   let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*)/).findOne();
+  log(is_sure);
   if (is_sure.enabled()) {
     textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*)/)
       .findOne()
@@ -424,7 +428,8 @@ function kill_app(packageName) {
     back();
   } else {
     log(app.getAppName(name) + "应用不能被正常关闭或不在后台运行");
-    back();
+    sleep(3000);
+    // back();
   }
 }
 
