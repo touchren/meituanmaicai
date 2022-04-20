@@ -149,7 +149,7 @@ function musicNotify() {
   // 心如止水
   const m = "/storage/emulated/0/Download/success.mp3";
   media.playMusic(m);
-  sleep(media.getMusicDuration());
+  // sleep(media.getMusicDuration());
 }
 
 function to_mall_cart() {
