@@ -1,10 +1,12 @@
 // 常量定义
 // 最大尝试轮数
-let MAX_ROUND = 5;
+var MAX_ROUND = 5;
 // 每轮最长重试次数
-let MAX_TIMES_PER_ROUND = 500;
+var MAX_TIMES_PER_ROUND = 1000;
 // 是否启用 结算 功能, 0:不启用, 1:启用
-let ACTIVE_SUBMIT = 1;
+var ACTIVE_SUBMIT = 1;
+// 点击按钮之后的通用等待时间
+var COMMON_SLEEP_TIME_IN_MILLS = 150;
 
 // 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
@@ -17,12 +19,14 @@ device.wakeUp();
 sleep(100);
 let times = 0;
 toastLog(
-  "启用结算:" +
+  "常量配置如下 -> 启用结算:" +
     ACTIVE_SUBMIT +
     ",轮数:" +
     MAX_ROUND +
     ",每轮次数:" +
-    MAX_TIMES_PER_ROUND
+    MAX_TIMES_PER_ROUND +
+    ",点击后默认等待ms:" +
+    COMMON_SLEEP_TIME_IN_MILLS
 );
 
 // 开始循环执行
@@ -159,6 +163,7 @@ function to_mall_cart() {
     //var loc = id("img_shopping_cart").findOne().bounds();//1.匹配id寻找位置。
     //click(loc.centerX(), loc.centerY());
     log("已进入购物车");
+    commonWait();
   } else {
     log("未找到购物车按钮，退出");
     exit;
@@ -199,14 +204,8 @@ function pay() {
   click_i_know();
   if (textStartsWith("立即支付").exists()) {
     textStartsWith("立即支付").findOne().parent().click();
-    // musicNotify();
-    sleep(300);
+    commonWait();
     confirm_to_pay();
-    // sleep(3000);
-    // if (textStartsWith("立即支付").exists()) {
-    //   log("异常: 还停留在立即支付页面");
-    //   pay();
-    // }
   } else {
     log("TODO异常: 没有找到支付按钮, 稍后重试");
     sleep(500);
@@ -223,6 +222,7 @@ function confirm_to_pay() {
     // 15分钟内支付即可, 为了防止误操作, 1分钟之后点击付款
     sleep(60 * 1000);
     textStartsWith("免密支付").findOne().parent().click();
+    commonWait();
     sleep(random(500, 1 * 1000));
     if (textStartsWith("成功").exists()) {
       // 等待2分钟
@@ -242,6 +242,7 @@ function selectTime(countT, status) {
   click_i_know();
   //选择送达时间
   textStartsWith("送达时间").findOne().parent().click();
+  commonWait();
   var selectedTime = null;
   hourClock_unfilterd = textContains(":00").find();
   hourClock = hourClock_unfilterd.filter(
@@ -278,11 +279,13 @@ function selectTime(countT, status) {
   if (selectedTime != null) {
     log("选择可用时间");
     selectedTime.parent().click();
-    sleep(300);
+    commonWait();
+    textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
     // 判断是否提示运力已满
     if (textStartsWith("我知道了").exists()) {
       textStartsWith("我知道了").findOne().parent().click();
-      sleep(150);
+      commonWait();
+      textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
       if (textStartsWith("送达时间").exists()) {
         selectTime(countT, false);
       } else {
@@ -323,7 +326,8 @@ function check_all() {
     if (!is_checked) {
       log("全选所有商品");
       radio_checkall.findOne().parent().click();
-      sleep(500);
+      commonWait();
+      sleep(1000);
     } else {
       // 已经选中了商品
     }
@@ -334,12 +338,20 @@ function click_i_know() {
   // 只要页面有 我知道了等按钮, 都盲点
   let retry_button = textMatches(/(我知道了|返回购物车)/);
   if (retry_button.exists()) {
+    log("通用方法:找到(我知道了|返回购物车)等按钮,直接点击");
     // 1. 配送运力已约满
     // 2. 门店已打烊
     // 3. 订单已约满
-    retry_button.findOne().parent().click();
-    sleep(300);
+    let temp = retry_button.findOne(100);
+    if (temp != null) {
+      temp.parent().click();
+      commonWait();
+    }
   }
+}
+
+function commonWait() {
+  sleep(150);
 }
 
 function submit_order(count) {
@@ -375,39 +387,45 @@ function submit_order(count) {
       check_all();
       // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
       // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
-      if (textStartsWith("结算(").exists()) {
-        log("开始结算:" + textStartsWith("结算").findOne().text());
-        let submit_btn = textStartsWith("结算").findOne();
+      let submit_btn = textStartsWith("结算(").findOne(1000);
+      if (submit_btn != null) {
+        log("点击:" + submit_btn.text());
         submit_btn.parent().click(); //结算按钮点击
-        sleep(1200);
-
-        let retry_button = textMatches(/(我知道了|返回购物车)/);
-        if (retry_button.exists()) {
-          // 1. 配送运力已约满
-          // 2. 门店已打烊
-          // 3. 订单已约满
-          retry_button.findOne().parent().click();
-          sleep(300);
+        commonWait();
+        // 1. 配送运力已约满
+        // 2. 门店已打烊
+        // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
+        textMatches(/(我知道了|返回购物车|送达时间)/).findOne(5000);
+        sleep(50);
+        let retry_button = textMatches(/(我知道了|返回购物车)/).findOnce();
+        if (retry_button != null) {
+          log("点击->" + retry_button.text());
+          retry_button.parent().click();
+          commonWait();
+          sleep(500);
           if (count > 15000000) {
             // exit;
           } else {
             submit_order(count);
           }
         } else {
-          sleep(1000);
+          log("没有出现我知道了等信息");
+          // sleep(1000);
           if (textStartsWith("放弃机会").exists()) {
             toast("跳过加购");
-            textStartsWith("放弃机会").findOne().parent().click();
-            sleep(300);
+            textStartsWith("放弃机会").findOnce().parent().click();
+            commonWait();
           } else {
-            toastLog("正常提交订单");
+            // 没有出现加购
           }
-          selectTime(0, false);
-          // 增加容错机制,
-          sleep(3000);
+          textMatches(/(我知道了|返回购物车|送达时间|购物车)/).findOne(300);
+          // 220421 高峰期,点击结算可能没反应
           if (textStartsWith("购物车").exists()) {
             log("异常: 还停留在购物车页面");
             submit_order(count);
+          } else if (textStartsWith("送达时间").exists()) {
+            toastLog("开始选择送达时间");
+            selectTime(0, false);
           }
         }
       } else {
@@ -426,10 +444,11 @@ function start() {
   sleep(600);
   auto.waitFor();
   //跳过开屏广告
-  btn_skip = id("btn_skip").findOne();
+  btn_skip = id("btn_skip").findOne(5000);
   if (btn_skip) {
     btn_skip.click();
     toast("已跳过开屏广告");
+    commonWait();
   } else {
     log("没有找到跳过开屏广告按钮");
   }
@@ -459,11 +478,11 @@ function kill_app(packageName) {
     textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*)/)
       .findOne()
       .click();
-    sleep(300);
+    commonWait();
     buttons = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|确定|是)/).find();
     if (buttons.length > 0) {
-      //sleep(500);
       buttons[buttons.length - 1].click();
+      commonWait();
     } else {
       // 异常情况
       toast(app.getAppName(name) + "应用没有找到确认按钮");
