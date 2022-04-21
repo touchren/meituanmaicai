@@ -472,14 +472,14 @@ function kill_app(packageName) {
   }
   app.openAppSetting(name);
   text(app.getAppName(name)).waitFor();
-  let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*)/).findOne();
-  log(is_sure);
+  let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|.*FORCE.*)/).findOne(3000);
+  // log(is_sure);
   if (is_sure.enabled()) {
     textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*)/)
       .findOne()
       .click();
     commonWait();
-    buttons = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|确定|是)/).find();
+    buttons = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|确定|是|.*FORCE.*)/).find();
     if (buttons.length > 0) {
       buttons[buttons.length - 1].click();
       commonWait();
