@@ -475,9 +475,7 @@ function kill_app(packageName) {
   let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|.*FORCE.*)/).findOne(3000);
   // log(is_sure);
   if (is_sure.enabled()) {
-    textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*)/)
-      .findOne()
-      .click();
+    is_sure.click();
     commonWait();
     buttons = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|确定|是|.*FORCE.*)/).find();
     if (buttons.length > 0) {
