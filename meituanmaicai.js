@@ -7,7 +7,7 @@ const MAX_TIMES_PER_ROUND = 500;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
-const COMMON_SLEEP_TIME_IN_MILLS = 200;
+const COMMON_SLEEP_TIME_IN_MILLS = 150;
 // 是否先强行停止APP
 const ACTIVE_STOP_APP = 0;
 
@@ -19,6 +19,8 @@ var count = 0;
 var countT = 0;
 // 本轮是否成功
 //var isSuccess = false;
+// 本轮是否发生错误
+var hasError = false;
 
 // 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
@@ -41,20 +43,26 @@ toastLog(
     COMMON_SLEEP_TIME_IN_MILLS
 );
 
+
 // 开始循环执行
 while (round < MAX_ROUND) {
   round++;
   log("开始第" + round + "轮抢菜");
+  hasError =false;
   try {
     start();
   } catch (e) {
-    toastLog("异常: 出现中断性问题");
+    hasError = true;
+    log("异常: 出现中断性问题");
     log(e);
   }
+
   let randomSleep = random(30 * 1000, 90 * 1000);
   log("第" + round + "轮抢菜执行结束, 休息[" + randomSleep + "]ms");
-  // 随机休息30-90秒
-  sleep(randomSleep);
+  if (!hasError) {
+    // 正常超过次数结束的情况下随机休息30-90秒
+    sleep(randomSleep);
+  }
 }
 log("程序正常结束");
 
@@ -186,8 +194,10 @@ function to_mall_cart() {
       commonWait();
       text("删除").findOne(2000);
     } else {
-      log("未找到购物车按钮，退出");
-      exit;
+      log("未找到购物车按钮");
+      back();
+      sleep(1000);
+      to_mall_cart();
     }
   }
 }
@@ -287,8 +297,8 @@ function selectTime() {
   }
   //选择送达时间
   textStartsWith("送达时间").findOne(1000).parent().click();
-  log("选择时间第" + round + "-" + cocountTunt + "次");
-  if (count == 1 || count % 5 == 0) {
+  log("选择时间第" + round + "-" + countT + "次");
+  if (countT == 1 || countT % 5 == 0) {
     toast(
       "第" +
         round +
@@ -335,13 +345,13 @@ function selectTime() {
   }
 
   if (selectedTime) {
-    log("点击:" + selectedTime.text());
+    log("点击->[" + selectedTime.text()+"]");
     selectedTime.parent().click();
     commonWait();
     let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
     // 判断是否提示运力已满
     if (retry) {
-      log("点击:" + retry.text());
+      log("点击->[" + retry.text()+"]");
       retry.parent().click();
       commonWait();
       let retry2 = textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
@@ -397,7 +407,7 @@ function check_all() {
     // 220422 更新, 如果闭店的情况下, 就算全选了商品, 结算后面也不会出现"(数量)""
     // let is_checked = textStartsWith("结算").findOne().text() != "结算";
     let is_checked = textMatches(/(.*配送费.*)/).findOne(300);
-    log("购物车当前已选择商品:" + +(is_checked != null));
+    log("购物车当前已选择商品:" + (is_checked != null));
     if (is_checked == null) {
       log("全选所有商品");
       radio_checkall.parent().click();
@@ -446,7 +456,7 @@ function click_i_know() {
 }
 
 function commonWait() {
-  sleep(COMMON_SLEEP_TIME_IN_MILLS);
+  sleep(COMMON_SLEEP_TIME_IN_MILLS + random(0, 50));
 }
 
 function submit_order() {
@@ -484,7 +494,7 @@ function submit_order() {
       // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
       let submit_btn = textStartsWith("结算(").findOne(1000);
       if (submit_btn) {
-        log("点击:" + submit_btn.text());
+        log("点击->[" + submit_btn.text()+"]");
         submit_btn.parent().click(); //结算按钮点击
         commonWait();
         // 1. 配送运力已约满
