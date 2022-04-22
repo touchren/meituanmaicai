@@ -1,23 +1,35 @@
 // 常量定义
+const APP_NAME = "美团买菜";
 // 最大尝试轮数
-var MAX_ROUND = 5;
-// 每轮最长重试次数
-var MAX_TIMES_PER_ROUND = 1000;
+const MAX_ROUND = 10;
+// 每轮最长重试次数 (平均单次1.2秒)
+const MAX_TIMES_PER_ROUND = 500;
 // 是否启用 结算 功能, 0:不启用, 1:启用
-var ACTIVE_SUBMIT = 1;
+const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
-var COMMON_SLEEP_TIME_IN_MILLS = 150;
+const COMMON_SLEEP_TIME_IN_MILLS = 200;
+// 是否先强行停止APP
+const ACTIVE_STOP_APP = 0;
+
+// 第几轮
+var round = 0;
+// 本轮执行第几次
+var count = 0;
+// 选择时间本轮选择第几次
+var countT = 0;
+// 本轮是否成功
+//var isSuccess = false;
 
 // 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
+  log("engines.myEngine().toString():" + engines.myEngine().toString());
   if (engines.myEngine().toString() !== ScriptEngine.toString()) {
     ScriptEngine.forceStop();
   }
 });
 
 device.wakeUp();
-sleep(100);
-let times = 0;
+commonWait();
 toastLog(
   "常量配置如下 -> 启用结算:" +
     ACTIVE_SUBMIT +
@@ -30,12 +42,17 @@ toastLog(
 );
 
 // 开始循环执行
-while (times < MAX_ROUND) {
-  times++;
-  log("开始第" + times + "轮抢菜");
-  start();
+while (round < MAX_ROUND) {
+  round++;
+  log("开始第" + round + "轮抢菜");
+  try {
+    start();
+  } catch (e) {
+    toastLog("异常: 出现中断性问题");
+    log(e);
+  }
   let randomSleep = random(30 * 1000, 90 * 1000);
-  log("第" + times + "轮抢菜执行结束, 休息[" + randomSleep + "]ms");
+  log("第" + round + "轮抢菜执行结束, 休息[" + randomSleep + "]ms");
   // 随机休息30-90秒
   sleep(randomSleep);
 }
@@ -157,16 +174,21 @@ function musicNotify() {
 }
 
 function to_mall_cart() {
-  shopping_cart_btn = id("img_shopping_cart").findOne();
-  if (shopping_cart_btn) {
-    shopping_cart_btn.parent().click(); //btn上一级控件可点击
-    //var loc = id("img_shopping_cart").findOne().bounds();//1.匹配id寻找位置。
-    //click(loc.centerX(), loc.centerY());
-    log("已进入购物车");
-    commonWait();
+  if (textStartsWith("我常买").exists()) {
+    log("当前已经在购物车页面");
   } else {
-    log("未找到购物车按钮，退出");
-    exit;
+    shopping_cart_btn = id("img_shopping_cart").findOne(5000);
+    if (shopping_cart_btn) {
+      shopping_cart_btn.parent().click(); //btn上一级控件可点击
+      //var loc = id("img_shopping_cart").findOne().bounds();//1.匹配id寻找位置。
+      //click(loc.centerX(), loc.centerY());
+      log("已进入购物车,等待购物车加载完成");
+      commonWait();
+      text("删除").findOne(2000);
+    } else {
+      log("未找到购物车按钮，退出");
+      exit;
+    }
   }
 }
 
@@ -200,17 +222,33 @@ function reload_mall_cart() {
 }
 
 function pay() {
-  log("准备点击[立即支付]");
-  click_i_know();
-  if (textStartsWith("立即支付").exists()) {
-    textStartsWith("立即支付").findOne().parent().click();
-    commonWait();
-    confirm_to_pay();
+  // 可能还会失败
+  if (textStartsWith("选择送达时间").exists()) {
+    log("异常: 还停留在选择送达时间页面, 开始重新选择时间");
+    selectTime();
+  } else if (textStartsWith("我常买").exists()) {
+    log("异常: 还停留在购物车页面");
+    submit_order();
   } else {
-    log("TODO异常: 没有找到支付按钮, 稍后重试");
-    sleep(500);
-    pay();
+    log("准备点击[立即支付]");
+    click_i_know();
+    if (
+      textStartsWith("立即支付").exists() &&
+      !textStartsWith("我知道了").exists()
+    ) {
+      log("选择时间计数清零");
+      countT = 0;
+      textStartsWith("立即支付").findOne().parent().click();
+      commonWait();
+      sleep(500);
+      confirm_to_pay();
+    } else {
+      log("TODO异常: 没有找到支付按钮, 稍后重试");
+      sleep(500);
+      pay();
+    }
   }
+  log("DEBUG: [立即支付]结束");
 }
 
 function confirm_to_pay() {
@@ -233,16 +271,36 @@ function confirm_to_pay() {
     }
   } else {
     log("下单失败, 马上重试");
-    sleep(300);
+    sleep(1500);
     pay();
   }
+  log("DEBUG: [免密支付]结束");
 }
 
-function selectTime(countT, status) {
+function selectTime() {
+  sleep(500);
   click_i_know();
+  countT++;
+  let shopping_cart_btn = textMatches(/(购物车)/);
+  if (shopping_cart_btn.exists()) {
+    submit_order();
+  }
   //选择送达时间
-  textStartsWith("送达时间").findOne().parent().click();
+  textStartsWith("送达时间").findOne(1000).parent().click();
+  log("选择时间第" + round + "-" + cocountTunt + "次");
+  if (count == 1 || count % 5 == 0) {
+    toast(
+      "第" +
+        round +
+        "-" +
+        countT +
+        "次点击->" +
+        textStartsWith("送达时间").findOne().text()
+    );
+  }
+
   commonWait();
+  sleep(500);
   var selectedTime = null;
   hourClock_unfilterd = textContains(":00").find();
   hourClock = hourClock_unfilterd.filter(
@@ -276,60 +334,90 @@ function selectTime(countT, status) {
     }
   }
 
-  if (selectedTime != null) {
-    log("选择可用时间");
+  if (selectedTime) {
+    log("点击:" + selectedTime.text());
     selectedTime.parent().click();
     commonWait();
-    textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
+    let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
     // 判断是否提示运力已满
-    if (textStartsWith("我知道了").exists()) {
-      textStartsWith("我知道了").findOne().parent().click();
+    if (retry) {
+      log("点击:" + retry.text());
+      retry.parent().click();
       commonWait();
-      textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
+      let retry2 = textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
       if (textStartsWith("送达时间").exists()) {
-        selectTime(countT, false);
+        selectTime();
       } else {
-        selectTime(countT, false);
+        selectTime();
       }
     } else {
       sleep(100);
-      status = true;
-      pay();
-      // 可能还会失败
-      sleep(3000);
-      if (textStartsWith("送达时间").exists()) {
-        log("异常: 支付失败, 开始重新选择时间");
-        selectTime(countT, false);
+      if (textStartsWith("选择送达时间").exists()) {
+        let closeBtn = className("android.widget.ImageView")
+          .depth(15)
+          .findOne(1000);
+        if (closeBtn) {
+          log("关闭[选择送达时间]页面");
+          closeBtn.parent().click();
+          commonWait();
+        }
+        log("异常: 开始重新选择时间");
+        selectTime();
+      } else {
+        pay();
+        // 可能还会失败
+        // sleep(3000);
+        // if (textStartsWith("选择送达时间").exists()) {
+        //   log("异常: 支付失败, 开始重新选择时间");
+        //   selectTime();
+        // }
       }
     }
   } else {
     log("没有可用时间段");
-    countT = countT + 1;
-    if (countT > 18000) {
+    if (countT > MAX_TIMES_PER_ROUND) {
       toast("抢菜选择时间失败");
-      exit;
+      return;
     }
     sleep(100);
     log("开始重新选择时间");
-    selectTime(countT, false);
+    selectTime();
   }
+  log("DEBUG: [选择时间]结束");
 }
 
 function check_all() {
   log("判断购物车是否已经选中商品");
-  let radio_checkall = className("android.widget.ImageView").depth(22);
-  if (radio_checkall.exists()) {
+  let radio_checkall = className("android.widget.ImageView")
+    .depth(22)
+    .findOne();
+  if (radio_checkall) {
     // log(radio_checkall.findOne());
-    // 选中的情况下是 结算(数量)
-    let is_checked = textStartsWith("结算").findOne().text() != "结算";
-    log("购物车当前已选择商品:" + is_checked);
-    if (!is_checked) {
+    // 选中的情况下是 结算(数量),
+    // 220422 更新, 如果闭店的情况下, 就算全选了商品, 结算后面也不会出现"(数量)""
+    // let is_checked = textStartsWith("结算").findOne().text() != "结算";
+    let is_checked = textMatches(/(.*配送费.*)/).findOne(300);
+    log("购物车当前已选择商品:" + +(is_checked != null));
+    if (is_checked == null) {
       log("全选所有商品");
-      radio_checkall.findOne().parent().click();
+      radio_checkall.parent().click();
       commonWait();
       sleep(1000);
-    } else {
-      // 已经选中了商品
+    } else if (count == 1) {
+      // 已经选择过商品的情况下, 第一次也取消并重新选择
+      log("重新全选商品-点击全选按钮");
+      radio_checkall.parent().click();
+      commonWait();
+      sleep(1000);
+      is_checked = textMatches(/(.*配送费.*)/).findOne(300);
+      if (is_checked == null) {
+        log("重新全选商品-再次点击全选按钮");
+        radio_checkall.parent().click();
+        commonWait();
+        sleep(1000);
+      }
+      is_checked = textMatches(/(.*配送费.*)/).findOne(300);
+      log("重新全选商品-购物车当前已选择商品:" + (is_checked != null));
     }
   }
 }
@@ -338,23 +426,30 @@ function click_i_know() {
   // 只要页面有 我知道了等按钮, 都盲点
   let retry_button = textMatches(/(我知道了|返回购物车)/);
   if (retry_button.exists()) {
-    log("通用方法:找到(我知道了|返回购物车)等按钮,直接点击");
+    let temp = retry_button.findOne(100);
+    log("通用方法:找到[" + temp.text() + "]按钮,直接点击");
     // 1. 配送运力已约满
     // 2. 门店已打烊
     // 3. 订单已约满
-    let temp = retry_button.findOne(100);
     if (temp != null) {
       temp.parent().click();
       commonWait();
+      let temp2 = retry_button.findOne(100);
+      if (temp2) {
+        log("异常: 点击[我知道了]无效");
+        let loc = temp2.bounds(); //1.匹配id寻找位置。
+        log("通过坐标点击");
+        click(loc.centerX(), loc.centerY());
+      }
     }
   }
 }
 
 function commonWait() {
-  sleep(150);
+  sleep(COMMON_SLEEP_TIME_IN_MILLS);
 }
 
-function submit_order(count) {
+function submit_order() {
   // 220417 , 目前单次约2.5秒, 2小时约2880次
   // 循环调用约2157次后, 堆栈达到1040KB,导致程序中止
   if (count >= MAX_TIMES_PER_ROUND) {
@@ -364,16 +459,16 @@ function submit_order(count) {
   }
   click_i_know();
   count = count + 1;
-  log("抢菜第" + times + "-" + count + "次");
+  log("抢菜第" + round + "-" + count + "次");
   if (count == 1 || count % 5 == 0) {
-    toast("抢菜第" + times + "轮第" + count + "次");
+    toast("抢菜第" + round + "轮第" + count + "次");
   }
 
   //美团买菜 结算按钮无id
   if (!textStartsWith("结算").exists()) {
     log("未找到结算按钮，刷新页面");
     reload_mall_cart();
-    submit_order(count);
+    submit_order();
   } else {
     // 记录商品信息
     let item = className("android.widget.TextView").depth(30);
@@ -388,7 +483,7 @@ function submit_order(count) {
       // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
       // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
       let submit_btn = textStartsWith("结算(").findOne(1000);
-      if (submit_btn != null) {
+      if (submit_btn) {
         log("点击:" + submit_btn.text());
         submit_btn.parent().click(); //结算按钮点击
         commonWait();
@@ -396,20 +491,17 @@ function submit_order(count) {
         // 2. 门店已打烊
         // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
         textMatches(/(我知道了|返回购物车|送达时间)/).findOne(5000);
-        sleep(50);
         let retry_button = textMatches(/(我知道了|返回购物车)/).findOnce();
-        if (retry_button != null) {
-          log("点击->" + retry_button.text());
+        if (retry_button) {
+          log("点击->[" + retry_button.text() + "]");
           retry_button.parent().click();
           commonWait();
-          sleep(500);
-          if (count > 15000000) {
-            // exit;
-          } else {
-            submit_order(count);
-          }
+          // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
+          sleep(600);
+          // 继续重试
+          submit_order(count);
         } else {
-          log("没有出现我知道了等信息");
+          log("没有出现我知道了等失败信息");
           // sleep(1000);
           if (textStartsWith("放弃机会").exists()) {
             toast("跳过加购");
@@ -422,27 +514,35 @@ function submit_order(count) {
           // 220421 高峰期,点击结算可能没反应
           if (textStartsWith("购物车").exists()) {
             log("异常: 还停留在购物车页面");
-            submit_order(count);
+            submit_order();
           } else if (textStartsWith("送达时间").exists()) {
             toastLog("开始选择送达时间");
-            selectTime(0, false);
+            selectTime();
           }
         }
       } else {
-        // 已经没有结算按钮了, 重试
-        submit_order(count);
+        // 判断是否是 [站点闭店休息中,暂时无法下单]
+        let shopClosedTxt = textStartsWith("站点闭店").findOne(300);
+        if (shopClosedTxt) {
+          toastLog("异常: 站点已关闭, 稍后重试");
+        } else {
+          // 已经没有结算按钮了, 重试
+          submit_order();
+        }
       }
     }
   }
+  log("DEBUG: [结算]执行结束");
 }
 
 function start() {
-  kill_app("美团买菜");
-
-  const appName = "美团买菜";
-  launchApp(appName);
+  if (ACTIVE_STOP_APP == 1) {
+    kill_app(APP_NAME);
+  }
+  launchApp(APP_NAME);
   sleep(600);
   auto.waitFor();
+  click_i_know();
   //跳过开屏广告
   btn_skip = id("btn_skip").findOne(5000);
   if (btn_skip) {
@@ -456,9 +556,8 @@ function start() {
   //跳过后加载首页会有一段时间再加载出购物车
 
   to_mall_cart();
-  log("等待购物车加载完成");
-  sleep(2000);
-  submit_order(0);
+  count = 0;
+  submit_order();
 }
 
 function kill_app(packageName) {
@@ -472,12 +571,16 @@ function kill_app(packageName) {
   }
   app.openAppSetting(name);
   text(app.getAppName(name)).waitFor();
-  let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|.*FORCE.*)/).findOne(3000);
+  let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|.*FORCE.*)/).findOne(
+    3000
+  );
   // log(is_sure);
   if (is_sure.enabled()) {
     is_sure.click();
     commonWait();
-    buttons = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|确定|是|.*FORCE.*)/).find();
+    buttons = textMatches(
+      /(.*强.*|.*停.*|.*结.*|.*行.*|确定|是|.*FORCE.*)/
+    ).find();
     if (buttons.length > 0) {
       buttons[buttons.length - 1].click();
       commonWait();
