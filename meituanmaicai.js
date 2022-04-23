@@ -43,12 +43,11 @@ toastLog(
     COMMON_SLEEP_TIME_IN_MILLS
 );
 
-
 // 开始循环执行
 while (round < MAX_ROUND) {
   round++;
   log("开始第" + round + "轮抢菜");
-  hasError =false;
+  hasError = false;
   try {
     start();
   } catch (e) {
@@ -233,7 +232,7 @@ function reload_mall_cart() {
 
 function pay() {
   // 可能还会失败
-  if (textStartsWith("选择送达时间").exists()) {
+  if (textStartsWith("111选择送达时间").exists()) {
     log("异常: 还停留在选择送达时间页面, 开始重新选择时间");
     selectTime();
   } else if (textStartsWith("我常买").exists()) {
@@ -345,13 +344,13 @@ function selectTime() {
   }
 
   if (selectedTime) {
-    log("点击->[" + selectedTime.text()+"]");
+    log("点击->[" + selectedTime.text() + "]");
     selectedTime.parent().click();
     commonWait();
     let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
     // 判断是否提示运力已满
     if (retry) {
-      log("点击->[" + retry.text()+"]");
+      log("点击->[" + retry.text() + "]");
       retry.parent().click();
       commonWait();
       let retry2 = textMatches(/(我知道了|返回购物车|送达时间)/).findOne(1000);
@@ -363,6 +362,7 @@ function selectTime() {
     } else {
       sleep(100);
       if (textStartsWith("选择送达时间").exists()) {
+        log("WARN: 选择送达时间还存在");
         let closeBtn = className("android.widget.ImageView")
           .depth(15)
           .findOne(1000);
@@ -371,6 +371,8 @@ function selectTime() {
           closeBtn.parent().click();
           commonWait();
         }
+        // 尝试点击点击支付按钮
+        pay();
         log("异常: 开始重新选择时间");
         selectTime();
       } else {
@@ -400,15 +402,21 @@ function check_all() {
   log("判断购物车是否已经选中商品");
   let radio_checkall = className("android.widget.ImageView")
     .depth(22)
-    .findOne();
+    .findOne(200);
   if (radio_checkall) {
     // log(radio_checkall.findOne());
     // 选中的情况下是 结算(数量),
     // 220422 更新, 如果闭店的情况下, 就算全选了商品, 结算后面也不会出现"(数量)""
-    // let is_checked = textStartsWith("结算").findOne().text() != "结算";
-    let is_checked = textMatches(/(.*配送费.*)/).findOne(300);
-    log("购物车当前已选择商品:" + (is_checked != null));
-    if (is_checked == null) {
+    let is_checked2 = textStartsWith("结算").findOne(200).text() != "结算";
+    let is_checked = textMatches(/(.*配送费.*)/).findOne(200) != null;
+    log(
+      "购物车当前已选择商品, 结算条件:" +
+        is_checked2 +
+        ", 配送费条件: " +
+        is_checked
+    );
+    // 自提的情况下, 已选择了商品 结算条件 true, 配送费条件 false
+    if (!is_checked2 && !is_checked) {
       log("全选所有商品");
       radio_checkall.parent().click();
       commonWait();
@@ -419,15 +427,17 @@ function check_all() {
       radio_checkall.parent().click();
       commonWait();
       sleep(1000);
-      is_checked = textMatches(/(.*配送费.*)/).findOne(300);
-      if (is_checked == null) {
+      is_checked2 = textStartsWith("结算").findOne(200).text() != "结算";
+      if (!is_checked2) {
         log("重新全选商品-再次点击全选按钮");
         radio_checkall.parent().click();
         commonWait();
         sleep(1000);
       }
-      is_checked = textMatches(/(.*配送费.*)/).findOne(300);
-      log("重新全选商品-购物车当前已选择商品:" + (is_checked != null));
+      is_checked2 = textStartsWith("结算").findOne(200).text() != "结算";
+      log("重新全选商品-购物车当前已选择商品:" + (is_checked2));
+    } else {
+      log("购物车已经选择好了商品");
     }
   }
 }
@@ -483,7 +493,7 @@ function submit_order() {
     // 记录商品信息
     let item = className("android.widget.TextView").depth(30);
     if (item.exists()) {
-      log("第一件商品:" + item.findOne().text());
+      log("第一件商品:" + item.findOne(1000).text());
     }
     if (ACTIVE_SUBMIT == 0) {
       toastLog("观察模式, 仅监控商品");
@@ -494,18 +504,17 @@ function submit_order() {
       // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
       let submit_btn = textStartsWith("结算(").findOne(1000);
       if (submit_btn) {
-        log("点击->[" + submit_btn.text()+"]");
+        log("点击->[" + submit_btn.text() + "]");
         submit_btn.parent().click(); //结算按钮点击
         commonWait();
         // 1. 配送运力已约满
         // 2. 门店已打烊
         // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
         textMatches(/(我知道了|返回购物车|送达时间)/).findOne(5000);
-        let retry_button = textMatches(/(我知道了|返回购物车)/).findOnce();
+        let retry_button = textMatches(/(我知道了|返回购物车)/).findOne(100);
         if (retry_button) {
-          log("点击->[" + retry_button.text() + "]");
+          log("点击->01[" + retry_button.text() + "]");
           retry_button.parent().click();
-          commonWait();
           // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
           sleep(600);
           // 继续重试
@@ -532,9 +541,11 @@ function submit_order() {
         }
       } else {
         // 判断是否是 [站点闭店休息中,暂时无法下单]
-        let shopClosedTxt = textStartsWith("站点闭店").findOne(300);
-        if (shopClosedTxt) {
+        let isShopClosed = textStartsWith("站点闭店").exists();
+        if (isShopClosed) {
           toastLog("异常: 站点已关闭, 稍后重试");
+        } else if (textMatches(".*仅支持自提.*").exists()) {
+          toastLog("异常: 站点仅支持自提, 稍后重试");
         } else {
           // 已经没有结算按钮了, 重试
           submit_order();
