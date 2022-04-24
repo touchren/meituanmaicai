@@ -548,8 +548,8 @@ function submit_order() {
         // 1. 配送运力已约满
         // 2. 门店已打烊
         // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
-        textMatches(/(我知道了|返回购物车|送达时间)/).findOne(5000);
-        let retry_button = textMatches(/(我知道了|返回购物车)/).findOne(100);
+        textMatches(/(我知道了|返回购物车|送达时间|自提时间)/).findOne(10000);
+        let retry_button = textMatches(/(我知道了|返回购物车)/).findOne(50);
         if (retry_button) {
           log("点击->01[" + retry_button.text() + "]");
           retry_button.parent().click();
@@ -568,7 +568,7 @@ function submit_order() {
           } else {
             // 没有出现加购
           }
-          textMatches(/(我知道了|返回购物车|送达时间|购物车)/).findOne(300);
+          textMatches(/(送达时间|购物车|自提时间)/).findOne(300);
           // 220421 高峰期,点击结算可能没反应
           if (textStartsWith("购物车").exists()) {
             log("异常: 还停留在购物车页面");
@@ -576,6 +576,15 @@ function submit_order() {
           } else if (textStartsWith("送达时间").exists()) {
             toastLog("开始选择送达时间");
             selectTime();
+          } else if (textStartsWith("自提时间").exists()) {
+            toastLog("WARN: 进入了站点自提页面, 跳过本轮任务");
+            sleep(30 * 1000);
+            back();
+            log("返回购物车页面")
+          } else {
+            log("ERROR: 未知情况");
+            back();
+            commonWait();
           }
         }
       } else {
