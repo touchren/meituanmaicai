@@ -1,6 +1,7 @@
 // 常量定义
 const APP_NAME = "美团买菜";
 const PACKAGE_NAME = "com.meituan.retail.v.android";
+const AUTO_JS_PACKAGE_NAME = "org.autojs.autojs";
 // 最大尝试轮数
 const MAX_ROUND = 10;
 // 每轮最长重试次数 (平均单次1.2秒)
@@ -49,6 +50,7 @@ toastLog(
 );
 
 auto.waitFor();
+// console.show();
 
 // 开始循环执行
 while (round < MAX_ROUND) {
@@ -102,47 +104,48 @@ function start() {
   //selectTime()
   //submit_order();
   while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccess) {
-    let packageName = currentPackage();
-    if (packageName == PACKAGE_NAME) {
-      interruptCount = 0;
-      // 1. 首页 [购物车]
-      // 2. 购物车 [我常买]
-      // 3. 提交订单 [提交订单, 自提时间, 送达时间, 立即支付]
-      // 4. 支付订单 [支付订单,免密支付], 完成
-      // 5. 订单详情 [订单详情]
-      // toast提示 [前方拥堵，请稍后再试] , 会自动消失可以不用管
-      let page = textMatches(
-        /(我知道了|返回购物车|首页|我常买|提交订单|支付订单|订单详情)/
-      ).findOne(1000);
-      if (page) {
-        if (page.text() == "我常买") {
-          // 购物车
-          doInItemSel();
-        } else if (page.text() == "首页") {
-          // 首页
-          doInHome();
-        } else if (page.text() == "提交订单") {
-          // 提交订单
-          doInSubmit();
-        } else if (page.text() == "支付订单") {
-          // 支付订单
-          doInPay();
-        } else if (page.text() == "订单详情") {
-          // 支付详情
-          doInPaySuccess();
-        } else if (page.text() == "我知道了" || page.text() == "返回购物车") {
-          // 系统提示, 点掉即可
-          click_i_know();
-        } else {
-          log("ERROR: 当前在其他页面");
-          back();
-          commonWait();
-          launchApp(APP_NAME);
-          commonWait();
-        }
+    // 1. 首页 [购物车]
+    // 2. 购物车 [我常买]
+    // 3. 提交订单 [提交订单, 自提时间, 送达时间, 立即支付]
+    // 4. 支付订单 [支付订单,免密支付], 完成
+    // 5. 订单详情 [订单详情]
+    // toast提示 [前方拥堵，请稍后再试] , 会自动消失可以不用管
+    let page = textMatches(
+      /(我知道了|返回购物车|首页|我常买|提交订单|支付订单|订单详情)/
+    ).findOne(1000);
+    if (page) {
+      log("判断条件:[" + page.text() + "]");
+      if (page.text() == "我常买") {
+        // 购物车
+        doInItemSel();
+      } else if (page.text() == "首页") {
+        // 首页
+        doInHome();
+      } else if (page.text() == "提交订单") {
+        // 提交订单
+        doInSubmit();
+      } else if (page.text() == "支付订单") {
+        // 支付订单
+        doInPay();
+      } else if (page.text() == "订单详情") {
+        // 支付详情
+        doInPaySuccess();
+      } else if (page.text() == "我知道了" || page.text() == "返回购物车") {
+        // 系统提示, 点掉即可
+        click_i_know();
       } else {
-        log("ERROR: 未知页面");
+        log("ERROR: 当前在其他页面");
+        back();
+        commonWait();
+        launchApp(APP_NAME);
+        commonWait();
       }
+    } else {
+      log("ERROR: 未知页面");
+    }
+    let packageName = currentPackage();
+    if (packageName == PACKAGE_NAME || packageName == AUTO_JS_PACKAGE_NAME) {
+      interruptCount = 0;
     } else {
       interruptCount++;
       log(
@@ -154,7 +157,10 @@ function start() {
       );
       if (interruptCount % 120 == 0) {
         log("每2分钟重新启动一次[" + APP_NAME + "]");
+        home();
+        commonWait()
         launchApp(APP_NAME);
+        commonWait();
       }
       sleep(1000);
     }
@@ -316,6 +322,7 @@ function submit_order() {
           } else if (testTxt != null && testTxt.text() == "自提时间") {
             isFailed = true;
             toastLog("WARN: 进入了站点自提页面, 跳过本轮任务");
+            musicNotify("09.error");
             sleep(30 * 1000);
             back();
             log("返回购物车页面");
@@ -543,8 +550,15 @@ function musicNotify(name) {
     name = "success";
   }
   // 心如止水
-  const m = "/storage/emulated/0/Download/" + name + ".mp3";
-  media.playMusic(m);
+  let m = "/storage/emulated/0/Download/" + name + ".mp3";
+  try {
+    console.time("music 耗时");
+    media.playMusic(m);
+    console.timeEnd("music 耗时");
+  } catch (e) {
+    console.error("播放文件不存在:" + m);
+    console.error(e);
+  }
   // sleep(media.getMusicDuration());
 }
 
