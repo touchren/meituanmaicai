@@ -26,7 +26,7 @@ var countT = 0;
 //var isSuccess = false;
 // 本轮是否发生错误
 var hasError = false;
-
+// 任务中断次数
 var interruptCount = 0;
 
 // 调试期间临时使用, 关闭其他脚本
@@ -110,6 +110,7 @@ function start() {
       // 3. 提交订单 [提交订单, 自提时间, 送达时间, 立即支付]
       // 4. 支付订单 [支付订单,免密支付], 完成
       // 5. 订单详情 [订单详情]
+      // toast提示 [前方拥堵，请稍后再试] , 会自动消失可以不用管
       let page = textMatches(
         /(我知道了|返回购物车|首页|我常买|提交订单|支付订单|订单详情)/
       ).findOne(1000);
@@ -180,13 +181,16 @@ function doInHome() {
 
 function doInSubmit() {
   selectTime();
+  musicNotify("01.submit");
 }
 
 function doInPay() {
   confirm_to_pay();
+  musicNotify("02.pay");
 }
 
 function doInPaySuccess() {
+  musicNotify("03.pay_success");
   isSuccessed = true;
   // 等待一定时间
   sleep(30 * 1000);
@@ -202,7 +206,6 @@ function doInPaySuccess() {
     click(86, 126);
     commonWait();
   }
-  // 70, 136
 }
 
 // ################################################
@@ -289,7 +292,7 @@ function submit_order() {
           retry_button.parent().click();
           commonWait();
           // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
-          sleep(600);
+          sleep(650);
           // 继续重试
           //submit_order(count);
         } else {
@@ -535,15 +538,22 @@ function confirm_to_pay() {
 //   }
 // };
 
-function musicNotify() {
+function musicNotify(name) {
+  if (name == null) {
+    name = "success";
+  }
   // 心如止水
-  const m = "/storage/emulated/0/Download/success.mp3";
+  const m = "/storage/emulated/0/Download/" + name + ".mp3";
   media.playMusic(m);
   // sleep(media.getMusicDuration());
 }
 
 function commonWait() {
-  sleep(COMMON_SLEEP_TIME_IN_MILLS + random(0, 50));
+  sleep(random(1, 50));
+  if (text("前方拥堵，请稍后再试").findOne(COMMON_SLEEP_TIME_IN_MILLS)) {
+    log("前方拥堵，请稍后再试");
+  }
+  //
 }
 
 function click_i_know() {
