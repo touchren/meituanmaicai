@@ -104,21 +104,21 @@ function start() {
   //selectTime()
   //submit_order();
   while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccess) {
-    // 1. 首页 [购物车]
+    // 1. 首页 [搜索] 当前位置只可自提
     // 2. 购物车 [我常买]
     // 3. 提交订单 [提交订单, 自提时间, 送达时间, 立即支付]
     // 4. 支付订单 [支付订单,免密支付], 完成
     // 5. 订单详情 [订单详情]
     // toast提示 [前方拥堵，请稍后再试] , 会自动消失可以不用管
     let page = textMatches(
-      /(我知道了|返回购物车|首页|我常买|提交订单|支付订单|订单详情)/
+      /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|订单详情)/
     ).findOne(1000);
     if (page) {
       log("判断条件:[" + page.text() + "]");
       if (page.text() == "我常买") {
         // 购物车
         doInItemSel();
-      } else if (page.text() == "首页") {
+      } else if (page.text() == "搜索") {
         // 首页
         doInHome();
       } else if (page.text() == "提交订单") {
@@ -158,7 +158,7 @@ function start() {
       if (interruptCount % 120 == 0) {
         log("每2分钟重新启动一次[" + APP_NAME + "]");
         home();
-        commonWait()
+        commonWait();
         launchApp(APP_NAME);
         commonWait();
       }
@@ -401,113 +401,111 @@ function selectTime() {
     .depth(19)
     .textMatches(/([0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/)
     .findOne(500);
-  //
   if (timeTxt) {
     log("INFO 已选择时间:" + timeTxt.text());
     pay();
   } else {
-    //选择送达时间
-    textStartsWith("送达时间").findOne(1000).parent().click();
-    log("选择时间第" + round + "-" + countT + "次");
-    if (countT == 1 || countT % 5 == 0) {
-      toast(
-        "第" +
-          round +
-          "-" +
-          countT +
-          "次点击->" +
-          textStartsWith("送达时间").findOne().text()
-      );
-    }
+    let arriveTimeBtn = textStartsWith("送达时间").findOne(1000);
+    if (arriveTimeBtn) {
+      //选择送达时间
+      arriveTimeBtn.parent().click();
+      log("选择时间第" + round + "-" + countT + "次");
+      if (countT == 1 || countT % 5 == 0) {
+        toast(
+          "第" +
+            round +
+            "-" +
+            countT +
+            "次点击->" +
+            textStartsWith("送达时间").findOne().text()
+        );
+      }
 
-    commonWait();
-    sleep(500);
-    var selectedTime = null;
-    hourClock_unfilterd = textContains(":00").find();
-    hourClock = hourClock_unfilterd.filter(
-      (item) => item.clickable && item.checkable && enabled
-    );
-    if (hourClock.length > 0) {
-      selectedTime = hourClock[0];
-    } else {
-      quarClock_unfilterd = textContains(":15").find();
-      quarClock = quarClock_unfilterd.filter(
+      commonWait();
+      sleep(500);
+      var selectedTime = null;
+      hourClock_unfilterd = textContains(":00").find();
+      hourClock = hourClock_unfilterd.filter(
         (item) => item.clickable && item.checkable && enabled
       );
-      if (quarClock.length > 0) {
-        selectedTime = quarClock[0];
+      if (hourClock.length > 0) {
+        selectedTime = hourClock[0];
       } else {
-        halfClock_unfilterd = textContains(":30").find();
-        halfClock = halfClock_unfilterd.filter(
+        quarClock_unfilterd = textContains(":15").find();
+        quarClock = quarClock_unfilterd.filter(
           (item) => item.clickable && item.checkable && enabled
         );
-        if (halfClock.length > 0) {
-          selectedTime = halfClock[0];
+        if (quarClock.length > 0) {
+          selectedTime = quarClock[0];
         } else {
-          clock_last_unfilterd = textContains(":45").find();
-          clock_last = clock_last_unfilterd.filter(
+          halfClock_unfilterd = textContains(":30").find();
+          halfClock = halfClock_unfilterd.filter(
             (item) => item.clickable && item.checkable && enabled
           );
-          if (clock_last.length > 0) {
-            selectedTime = clock_last[0];
+          if (halfClock.length > 0) {
+            selectedTime = halfClock[0];
+          } else {
+            clock_last_unfilterd = textContains(":45").find();
+            clock_last = clock_last_unfilterd.filter(
+              (item) => item.clickable && item.checkable && enabled
+            );
+            if (clock_last.length > 0) {
+              selectedTime = clock_last[0];
+            }
           }
         }
       }
-    }
 
-    if (selectedTime) {
-      log("点击->[" + selectedTime.text() + "]");
-      selectedTime.parent().click();
-      commonWait();
-      let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
-      // 判断是否提示运力已满
-      if (retry) {
-        log("点击->[" + retry.text() + "]");
-        retry.parent().click();
+      if (selectedTime) {
+        log("点击->[" + selectedTime.text() + "]");
+        selectedTime.parent().click();
         commonWait();
+        let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
+        // 判断是否提示运力已满
+        if (retry) {
+          log("点击->[" + retry.text() + "]");
+          retry.parent().click();
+          commonWait();
+        }
+      } else {
+        log("没有可用时间段");
+        if (countT > MAX_TIMES_PER_ROUND) {
+          toast("抢菜选择时间失败");
+          return;
+        }
       }
+      log("DEBUG: [选择时间]结束");
     } else {
-      log("没有可用时间段");
-      if (countT > MAX_TIMES_PER_ROUND) {
-        toast("抢菜选择时间失败");
-        return;
-      }
+      console.error("ERROR1: 没有[送达时间]按钮");
     }
   }
-  log("DEBUG: [选择时间]结束");
 }
 
 function pay() {
-  log("DEBUG: [立即支付]-" + count + "开始");
-  // 可能还会失败
+  log("DEBUG: [立即支付|极速支付]-" + count + "开始");
   // 立即支付 与 送达时间 在同一个页面
-
-  log("准备点击[立即支付]");
+  log("准备点击[立即支付|极速支付]");
   click_i_know();
-  log("选择时间计数清零");
-  countT = 0;
-  textStartsWith("立即支付").findOne().parent().click();
-  // commonWait();
-  let iKnowBtn = text("我知道了").findOne(500);
-  if (iKnowBtn) {
-    log("估计高峰期, 支付失败, 马上重试");
-    iKnowBtn.parent().click();
+  let payBtn = textMatches(/(立即支付|极速支付)/).findOne(1000);
+  if (payBtn) {
+    payBtn.parent().click();
     commonWait();
-    //pay();
+    let iKnowBtn = text("我知道了").findOne(300);
+    if (iKnowBtn) {
+      log("估计高峰期, 支付失败, 马上重试");
+      iKnowBtn.parent().click();
+      commonWait();
+    }
   } else {
-    // 页面会出现 [去支付] 动画,
-    // 之后跳转到 {支付订单} 标题页面 , 有 [免密支付] 按钮, 返回(<)按钮
-    // if (text("支付订单").findOne(500)) {
-    //   confirm_to_pay();
-    // } else {
-    //   log("TODO异常1");
-    // }
+    console.error("没有找到[立即支付|极速支付]按钮");
+    musicNotify("09.error");
   }
-
   log("DEBUG: [立即支付]结束");
 }
 
 function confirm_to_pay() {
+  log("选择时间计数清零");
+  countT = 0;
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
   if (textStartsWith("免密支付").exists()) {
@@ -584,13 +582,26 @@ function click_i_know() {
       commonWait();
       let temp2 = retry_button.findOne(100);
       if (temp2) {
-        log("异常: 点击[我知道了]无效");
-        let loc = temp2.bounds(); //1.匹配id寻找位置。
-        log("通过坐标点击");
-        click(loc.centerX(), loc.centerY());
+        log("异常: 点击[" + temp2.text() + "]无效");
+        clickByCoor(temp2);
       }
     }
   }
+}
+
+function clickByCoor(obj) {
+  let loc = obj.bounds();
+  log(
+    "通过坐标点击(" +
+      obj.text() +
+      "):[" +
+      loc.centerX() +
+      "," +
+      loc.centerY() +
+      "]"
+  );
+  click(loc.centerX(), loc.centerY());
+  commonWait();
 }
 
 function kill_app(packageName) {
