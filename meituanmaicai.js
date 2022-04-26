@@ -280,7 +280,7 @@ function submit_order() {
       toastLog("观察模式, 仅监控商品");
     } else {
       // 全选购物车内有货商品
-      check_all();
+      check_all2();
       // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
       // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
       let submit_btn = textStartsWith("结算(").findOne(1000);
@@ -389,6 +389,23 @@ function check_all() {
     } else {
       log("购物车已经选择好了商品");
     }
+  }
+}
+
+function check_all2() {
+  // 先从底部购物车右上角查看all是多少
+  let allNumber = id("img_shopping_cart").findOne().parent().child(1).text();
+  // 构造"结算(allNumber)"的字符串用于匹配
+  let matchText = "结算(" + allNumber + ")";
+  // 找到结算按钮的text
+  let realText = textStartsWith("结算").findOne(200).text();
+  // 如果两者不匹配，则没有全选中
+  let allChecked = matchText === realText;
+  if (!allChecked) {
+    let radio_checkall = className("android.widget.ImageView")
+      .depth(22)
+      .findOne(200);
+    radio_checkall.parent().click();
   }
 }
 
@@ -573,18 +590,9 @@ function click_i_know() {
   let retry_button = textMatches(/(我知道了|返回购物车)/);
   if (retry_button.exists()) {
     let temp = retry_button.findOne(100);
-    // 1. 配送运力已约满
-    // 2. 门店已打烊
-    // 3. 订单已约满
-    if (temp) {
+    if (temp != null) {
       log("通用方法:找到[" + temp.text() + "]按钮,直接点击");
-      temp.parent().click();
-      commonWait();
-      let temp2 = retry_button.findOne(100);
-      if (temp2) {
-        log("异常: 点击[" + temp2.text() + "]无效");
-        clickByCoor(temp2);
-      }
+      clickByCoor(temp);
     }
   }
 }
