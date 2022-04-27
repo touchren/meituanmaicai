@@ -335,9 +335,11 @@ function submit_order() {
         // 判断是否是 [站点闭店休息中,暂时无法下单]
         let isShopClosed = textStartsWith("站点闭店").exists();
         if (isShopClosed) {
-          toastLog("异常: 站点已关闭, 稍后重试");
+          toastLog("异常: 站点闭店休息中");
+          isFailed = true;
         } else if (textMatches(".*仅支持自提.*").exists()) {
           toastLog("异常: 站点仅支持自提, 稍后重试");
+          isFailed = true;
         } else {
           // 已经没有结算按钮了, 重试
           //submit_order();
