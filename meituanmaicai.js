@@ -23,8 +23,6 @@ var isFailed = false;
 var isSuccessed = false;
 // 选择时间本轮选择第几次
 var countT = 0;
-// 本轮是否成功
-//var isSuccess = false;
 // 本轮是否发生错误
 var hasError = false;
 // 任务中断次数
@@ -50,7 +48,7 @@ toastLog(
 );
 
 auto.waitFor();
-// console.show();
+unlock();
 
 // 开始循环执行
 while (round < MAX_ROUND) {
@@ -61,15 +59,21 @@ while (round < MAX_ROUND) {
     start();
   } catch (e) {
     hasError = true;
-    log("异常: 出现中断性问题");
+    log("ERROR2: 出现中断性问题");
     log(e);
   }
 
-  let randomSleep = random(30 * 1000, 90 * 1000);
-  log("第" + round + "轮抢菜执行结束, 休息[" + randomSleep + "]ms");
-  if (!hasError) {
-    // 正常超过次数结束的情况下随机休息30-90秒
-    sleep(randomSleep);
+  let randomSleep = random(3, 20);
+  let secondPerTime = 3;
+  for (let i = 0; i < randomSleep; i++) {
+    toastLog(
+      "第" +
+        round +
+        "轮抢菜执行结束, 等待" +
+        (randomSleep * secondPerTime - i * secondPerTime) +
+        "秒后重试"
+    );
+    sleep(secondPerTime * 1000);
   }
 }
 log("程序正常结束");
@@ -77,7 +81,7 @@ log("程序正常结束");
 function start() {
   count = 0;
   isFailed = false;
-  isSuccess = false;
+  isSuccessed = false;
   device.wakeUp();
   commonWait();
   if (ACTIVE_STOP_APP == 1) {
@@ -103,7 +107,7 @@ function start() {
   count = 0;
   //selectTime()
   //submit_order();
-  while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccess) {
+  while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccessed) {
     // 1. 首页 [搜索] 当前位置只可自提
     // 2. 购物车 [我常买]
     // 3. 提交订单 [提交订单, 自提时间, 送达时间, 立即支付]
@@ -134,14 +138,16 @@ function start() {
         // 系统提示, 点掉即可
         click_i_know();
       } else {
-        log("ERROR: 当前在其他页面");
+        console.error("ERROR3: 当前在其他页面");
         back();
         commonWait();
         launchApp(APP_NAME);
         commonWait();
       }
     } else {
-      log("ERROR: 未知页面");
+      console.error("ERROR4: 未知页面");
+      sleep(1000);
+      musicNotify("09.error");
     }
     let packageName = currentPackage();
     if (packageName == PACKAGE_NAME || packageName == AUTO_JS_PACKAGE_NAME) {
@@ -207,10 +213,19 @@ function doInPaySuccess() {
     returnBtn.parent().click();
     commonWait();
   } else {
-    log("ERROR 没有找到返回按钮");
+    console.error("ERROR5 没有找到返回按钮");
     // (39,79,134,173);
     click(86, 126);
     commonWait();
+  }
+}
+
+// 解锁屏幕
+function unlock() {
+  try {
+    require("./Unlock.js").exec();
+  } catch (e) {
+    console.error(e);
   }
 }
 
@@ -229,7 +244,7 @@ function to_mall_cart() {
       commonWait();
       text("删除").findOne(2000);
     } else {
-      log("ERROR: 未找到购物车按钮");
+      console.error("ERROR6: 未找到购物车按钮");
     }
   }
 }
@@ -263,6 +278,11 @@ function submit_order() {
   log("抢菜第" + round + "-" + count + "次");
   if (count == 1 || count % 5 == 0) {
     toast("抢菜第" + round + "轮第" + count + "次");
+  }
+  let closeTxt = textMatches(".*本站点暂停线上服务.*").findOne(100);
+  if (closeTxt) {
+    toastLog("站点已关闭, 信息: {" + closeTxt.text() + "}");
+    isFailed = true;
   }
 
   //美团买菜 结算按钮无id
@@ -327,7 +347,7 @@ function submit_order() {
             back();
             log("返回购物车页面");
           } else {
-            log("ERROR: 未知情况:" + testTxt);
+            console.error("ERROR7: 未知情况:" + testTxt);
             commonWait();
           }
         }
