@@ -11,7 +11,7 @@ const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
 const COMMON_SLEEP_TIME_IN_MILLS = 150;
 // 是否先强行停止APP
-const ACTIVE_STOP_APP = 0;
+const ACTIVE_STOP_APP = 1;
 
 // 第几轮
 var round = 0;
@@ -123,8 +123,7 @@ function start() {
         // 首页
         doInHome();
       } else if (page.text() == "请确认地址") {
-        musicNotify("05.need_manual");
-        sleep(3000);
+        confirmAddress();
       } else if (page.text() == "提交订单") {
         // 提交订单
         doInSubmit();
@@ -216,6 +215,23 @@ function doInPaySuccess() {
     // (39,79,134,173);
     click(86, 126);
     commonWait();
+  }
+}
+
+// 220502 这个功能主要用于收货地址与定位地址距离较远的情况下, 选择[家]这个标签对应的地址,并[确认选择]
+function confirmAddress() {
+  let homeAddrBtn = text("家").findOne(100);
+  if (homeAddrBtn) {
+    homeAddrBtn.parent().parent().click();
+    commonWait();
+    let confirmBtn = text("确认选择").findOne(100);
+    if (confirmBtn) {
+      confirmBtn.parent().click();
+      commonWait();
+    }
+  } else {
+    musicNotify("05.need_manual");
+    sleep(3000);
   }
 }
 
