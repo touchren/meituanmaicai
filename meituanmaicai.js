@@ -42,9 +42,13 @@ engines.all().map((ScriptEngine) => {
 auto.waitFor();
 device.wakeUp();
 commonWait();
-sleep(500);
-// TODO 一个晚上之后, 解锁会不生效
+// 在定时任务执行时间的前一分钟先启动闹钟, 给手机亮屏
+closeClock();
+// 解锁手机
 unlock();
+
+// 覆盖配置项内部, 并设置粘贴板
+// getConfig(); //暂不需要
 
 // 开始循环执行
 while (round < MAX_ROUND) {
@@ -212,6 +216,22 @@ function doInPaySuccess() {
     // (39,79,134,173);
     click(86, 126);
     commonWait();
+  }
+}
+
+// 关闭闹钟提醒
+function closeClock() {
+  // 三星Note9闹钟关闭按钮
+  let closeClockBtn = id(
+    "com.sec.android.app.clockpackage:id/tabCircle"
+  ).findOne(200);
+  if (closeClockBtn) {
+    console.info("识别到三星闹钟界面, 执行[返回]关闭闹钟");
+    back();
+    commonWait();
+    sleep(500);
+  } else {
+    log("没有识别出闹钟按钮");
   }
 }
 
@@ -585,7 +605,6 @@ function confirm_to_pay() {
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
   if (textStartsWith("免密支付").exists()) {
-    // TODO 220417 继续调试, 后续考虑直接支付
     toastlog("已确认支付成功, 播放音乐");
     musicNotify();
     // 15分钟内支付即可, 为了防止误操作, 1分钟之后点击付款
