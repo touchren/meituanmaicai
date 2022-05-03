@@ -165,8 +165,9 @@ function start() {
           interruptCount +
           "次"
       );
-      if (interruptCount % 100 == 0) {
+      if (interruptCount == 24) {
         log("每2分钟重新启动一次[" + APP_NAME + "]");
+        unlock();
         home();
         commonWait();
         launchApp(APP_NAME);
@@ -585,10 +586,10 @@ function pay() {
         if (countP % 900 == 0) {
           tempFailed = true;
           console.info("本轮执行[%s]次,可能部分商品已经失效, [返回]", countP);
-          sleep(1500);
+          sleep(2500);
           back();
           commonWait();
-          sleep(500);
+          sleep(300);
         } else {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
@@ -601,12 +602,12 @@ function pay() {
             //   "点击[立即支付|极速支付]后,进入条件3:" + confirmTxt.text()
             // );
             if (confirmTxt.text() == "我知道了") {
+              printReason(confirmTxt);
               tempFailed = true;
               let infoTxt = textMatches(
                 ".*(不符合活动规则|重新选择送达时段)"
               ).findOne(50);
               // 0503 出现[我知道了], 表示这次就失败了, 需要返回购物车重试
-              printReason(confirmTxt);
               sleep(1000);
               clickByCoor(confirmTxt);
               sleep(500);
@@ -637,7 +638,7 @@ function pay() {
         }
         submitBtn = textMatches(/(立即支付|极速支付)/).findOne(100);
       }
-      log("[立即支付|极速支付]已经往下流转");
+      log("[立即支付|极速支付]已经往下流转, 本次失败:", tempFailed);
     } catch (e) {
       console.error(e.stack);
     }
@@ -648,7 +649,8 @@ function pay() {
   log("DEBUG: [立即支付]结束");
 }
 
-// 05/03 目前的版本, 这一步好像省略掉了, 直接就[极速付款]
+// 05/03 在三星S8上面, 这一步好像省略掉了, 直接选择[极速付款], 版本5.33.1, Android 9
+// 05/04 在三星Note9上还是有这个步骤, 没有极速支付, 版本5.33.1, Android 10
 function confirm_to_pay() {
   log("选择时间计数清零");
   countT = 0;
@@ -656,13 +658,13 @@ function confirm_to_pay() {
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
   if (textStartsWith("免密支付").exists()) {
-    toastlog("已确认支付成功, 播放音乐");
+    toastLog("已确认支付成功, 播放音乐");
     musicNotify();
     // 15分钟内支付即可, 为了防止误操作, 1分钟之后点击付款
     sleep(60 * 1000);
     textStartsWith("免密支付").findOne(2000).parent().click();
     commonWait();
-    sleep(random(1000, 1 * 1000));
+    sleep(random(100, 1 * 1000));
   } else {
     log("下单失败, 马上重试");
     sleep(1500);
