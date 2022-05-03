@@ -110,7 +110,7 @@ function start() {
     // toast提示 [前方拥堵，请稍后再试] , 会自动消失可以不用管
     console.time("判断当前页面耗时");
     let page = textMatches(
-      /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|支付成功|搜索)/
+      /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|支付成功|搜索|困鱼|日志)/
     ).findOne(2000);
     console.timeEnd("判断当前页面耗时");
     if (page) {
@@ -143,6 +143,8 @@ function start() {
       } else if (page.text() == "我知道了" || page.text() == "返回购物车") {
         // 系统提示, 点掉即可
         click_i_know();
+      } else if (page.text() == "困鱼" || page.text() == "日志") {
+        waitCheckLog();
       } else {
         console.error("ERROR3: 当前在其他页面");
         back();
@@ -189,6 +191,11 @@ function start() {
   );
 }
 
+function waitCheckLog() {
+  //log("正在查看日志")
+  sleep(3000);
+}
+
 function doInHome() {
   to_mall_cart();
 }
@@ -211,7 +218,7 @@ function doInPaySuccess() {
     commonWait();
   } else {
     musicNotify("09.error");
-    console.error("ERROR: 找不到[支付成功]的[完成]按钮")
+    console.error("ERROR: 找不到[支付成功]的[完成]按钮");
     sleep(2000);
   }
 }
