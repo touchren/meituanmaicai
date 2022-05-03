@@ -1,7 +1,7 @@
 // 常量定义
 const APP_NAME = "美团买菜";
 const PACKAGE_NAME = "com.meituan.retail.v.android";
-const AUTO_JS_PACKAGE_NAME = "org.autojs.autojs";
+const AUTO_JS_PACKAGE_NAME = "com.taobao.idlefish.x";
 // 最大尝试轮数
 const MAX_ROUND = 10;
 // 每轮最长重试次数 (平均单次1.2秒)
@@ -26,8 +26,6 @@ var isFailed = false;
 // 确实已成功
 var isSuccessed = false;
 
-// 本轮是否发生错误
-var hasError = false;
 // 任务中断次数
 var interruptCount = 0;
 
@@ -54,12 +52,10 @@ unlock();
 while (round < MAX_ROUND) {
   round++;
   log("开始第" + round + "轮抢菜");
-  hasError = false;
   try {
     start();
   } catch (e) {
-    hasError = true;
-    log("ERROR2: 出现中断性问题");
+    log("ERROR2: 出现中断性问题", e);
     log(e.stack);
   }
 
@@ -71,7 +67,7 @@ while (round < MAX_ROUND) {
         round +
         "轮抢菜执行结束, 等待" +
         (randomSleep * secondPerTime - i * secondPerTime) +
-        "秒后重试"
+        "秒后继续"
     );
     sleep(secondPerTime * 1000);
   }
@@ -169,14 +165,14 @@ function start() {
           interruptCount +
           "次"
       );
-      if (interruptCount % 120 == 0) {
+      if (interruptCount % 100 == 0) {
         log("每2分钟重新启动一次[" + APP_NAME + "]");
         home();
         commonWait();
         launchApp(APP_NAME);
         commonWait();
       }
-      sleep(1000);
+      //sleep(1000);
     }
   }
   toastLog(
@@ -652,6 +648,7 @@ function pay() {
   log("DEBUG: [立即支付]结束");
 }
 
+// 05/03 目前的版本, 这一步好像省略掉了, 直接就[极速付款]
 function confirm_to_pay() {
   log("选择时间计数清零");
   countT = 0;
@@ -666,11 +663,6 @@ function confirm_to_pay() {
     textStartsWith("免密支付").findOne(2000).parent().click();
     commonWait();
     sleep(random(1000, 1 * 1000));
-    // if (textStartsWith("商品准备中").findOne(1000)) {
-    // } else {
-    //   log("异常: 没有支付成功, 重新支付");
-    //   confirm_to_pay();
-    // }
   } else {
     log("下单失败, 马上重试");
     sleep(1500);
@@ -678,19 +670,6 @@ function confirm_to_pay() {
   }
   log("DEBUG: [免密支付]结束");
 }
-
-// const to_mine = () => {
-//   mine_btn = id("img_mine").findOne();
-//   if (mine_btn) {
-//     mine_btn.parent().click(); //btn上一级控件可点击
-//     //var loc = id("img_shopping_cart").findOne().bounds();//1.匹配id寻找位置。
-//     //click(loc.centerX(), loc.centerY());
-//     log("已进入我的");
-//   } else {
-//     log("未找到我的按钮，退出");
-//     exit;
-//   }
-// };
 
 function musicNotify(name) {
   if (name == null) {
