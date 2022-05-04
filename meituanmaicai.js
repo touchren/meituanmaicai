@@ -594,7 +594,7 @@ function pay() {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           let confirmTxt = textMatches(
-            /(前方拥堵.*|确认订单|我知道了|免密支付|验证指纹|支付成功|我常买)/
+            /(前方拥堵.*|确认订单|我知道了|免密支付|验证指纹|支付成功|支付订单|我常买)/
           ).findOne(5000);
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
           if (confirmTxt) {
@@ -627,7 +627,7 @@ function pay() {
               // toast提示 美团 [前方拥堵，请稍后再试] , 会自动消失可以不用管
               // log("通过text查找到[%s],忽略", confirmTxt.text()); // 日志太多,选择关闭 22/05/02
             } else {
-              // 确认订单|我常买 这两个页面,交给后续流程处理
+              // 支付订单|确认订单|我常买 这两个页面,交给后续流程处理
             }
           } else {
             console.error("ERROR7: 既没有[确认订单], 也没有[我知道了]等按钮");
