@@ -138,6 +138,7 @@ function start() {
         to_mall_cart();
       } else if (page.text() == "我知道了" || page.text() == "返回购物车") {
         // 系统提示, 点掉即可
+        printReason(page);
         click_i_know();
       } else if (page.text() == "困鱼" || page.text() == "日志") {
         waitCheckLog();
@@ -550,8 +551,10 @@ function doInSubmit() {
 }
 
 function printReason(iKnow) {
+  // [当前不在可下单时段] - [每日6:00开放下单, 当前时间无法下单, 感谢您的理解] - [我知道了]
   let needPrint = true;
   iKnow
+    .parent()
     .parent()
     .parent()
     .find(textMatches(".+"))
@@ -595,7 +598,7 @@ function pay() {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           let confirmTxt = textMatches(
-            /(前方拥堵.*|确认订单|我知道了|我常买|去支付|验证指纹|免密支付|支付成功|支付订单)/
+            /(前方拥堵.*|确认订单|我知道了|我常买|去支付|验证指纹|支付中|免密支付|支付成功|支付订单)/
           ).findOne(5000);
           // 成功情况1: [支付中] - [支付订单] - [免密支付]
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
@@ -629,6 +632,7 @@ function pay() {
               // toast提示 美团 [前方拥堵，请稍后再试] , 会自动消失可以不用管
               // log("通过text查找到[%s],忽略", confirmTxt.text()); // 日志太多,选择关闭 22/05/02
             } else {
+              log("进入条件5:", confirmTxt.text());
               // 支付订单|确认订单|我常买 这两个页面,交给后续流程处理
             }
           } else {
@@ -640,15 +644,16 @@ function pay() {
         }
         submitBtn = textMatches(/(立即支付|极速支付)/).findOne(100);
       }
-      log("[%s]已经往下流转, 本次失败:", submitBtn.text(), tempFailed);
+      log("已经往下流转, 本次失败:", tempFailed);
     } catch (e) {
+      console.error(e);
       console.error(e.stack);
     }
   } else {
     console.error("ERROR8: 没有找到[立即支付|极速支付]按钮");
     musicNotify("09.error");
   }
-  log("DEBUG: [立即支付|极速支付]结束");
+  log("DEBUG: [立即支付|极速支付]结束,countP: ", countP);
 }
 
 // 05/03 在三星S8上面, 这一步好像省略掉了, 直接选择[极速付款], 版本5.33.1, Android 9
@@ -659,14 +664,14 @@ function confirm_to_pay() {
   countP = 0;
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
-  if (textStartsWith("免密支付").exists()) {
+  let payBtn = textStartsWith("免密支付").findOne(2000);
+  if (payBtn) {
     toastLog("已确认支付成功, 播放音乐");
     musicNotify();
     // 15分钟内支付即可, 为了防止误操作, 1分钟之后点击付款
     sleep(60 * 1000);
-    textStartsWith("免密支付").findOne(2000).parent().click();
-    commonWait();
-    sleep(random(100, 1 * 1000));
+    clickByCoor(payBtn);
+    sleep(5000);
   } else {
     log("下单失败, 马上重试");
     sleep(1500);
@@ -707,15 +712,15 @@ function commonWait() {
   }
 }
 
-function click_i_know() {
-  // 只要页面有 我知道了等按钮, 都盲点
-  let retry_button = textMatches(/(我知道了|返回购物车)/);
-  if (retry_button.exists()) {
-    let temp = retry_button.findOne(100);
-    if (temp != null) {
-      log("通用方法:找到[" + temp.text() + "]按钮,直接点击");
-      clickByCoor(temp);
-    }
+function click_i_know(iKnow) {
+  let retry_button = iKnow;
+  if (retry_button == null) {
+    // 只要页面有 我知道了等按钮, 都盲点
+    retry_button = textMatches(/(我知道了|返回购物车)/).findOne(100);
+  }
+  if (retry_button) {
+    log("通用方法:找到[" + retry_button.text() + "]按钮,直接点击");
+    clickByCoor(retry_button);
   }
 }
 
