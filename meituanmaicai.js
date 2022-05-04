@@ -573,6 +573,7 @@ function pay() {
   let submitBtn = textMatches(/(立即支付|极速支付)/).findOne(1000);
   // 虽然名字叫做 [立即支付], 其实还是只是[提交订单]的效果
   if (submitBtn) {
+    log("进入条件4: [%s]", submitBtn.text());
     // 这里是高峰期的核心操作
     try {
       // 22/05/02 10次662毫秒,一分钟返回一次
@@ -594,8 +595,9 @@ function pay() {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           let confirmTxt = textMatches(
-            /(前方拥堵.*|确认订单|我知道了|免密支付|验证指纹|支付成功|支付订单|我常买)/
+            /(前方拥堵.*|确认订单|我知道了|我常买|去支付|验证指纹|免密支付|支付成功|支付订单)/
           ).findOne(5000);
+          // 成功情况1: [支付中] - [支付订单] - [免密支付]
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
           if (confirmTxt) {
             // console.log(
@@ -638,7 +640,7 @@ function pay() {
         }
         submitBtn = textMatches(/(立即支付|极速支付)/).findOne(100);
       }
-      log("[立即支付|极速支付]已经往下流转, 本次失败:", tempFailed);
+      log("[%s]已经往下流转, 本次失败:", submitBtn.text(), tempFailed);
     } catch (e) {
       console.error(e.stack);
     }
@@ -646,7 +648,7 @@ function pay() {
     console.error("ERROR8: 没有找到[立即支付|极速支付]按钮");
     musicNotify("09.error");
   }
-  log("DEBUG: [立即支付]结束");
+  log("DEBUG: [立即支付|极速支付]结束");
 }
 
 // 05/03 在三星S8上面, 这一步好像省略掉了, 直接选择[极速付款], 版本5.33.1, Android 9
