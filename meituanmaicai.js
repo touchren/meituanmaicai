@@ -695,8 +695,9 @@ function musicNotify(name) {
   try {
     if (!files.exists(m)) {
       // 如果无法访问, 大概耗时2.5s, 将来准备换成公网地址
+      // http://192.168.6.16/apk/autojs/tts/Download/
       var res = http.get(
-        "http://192.168.6.16/apk/autojs/tts/Download/" + name + ".mp3"
+        "https://raw.fastgit.org/touchren/meituanmaicai/main/tts/Download/" + name + ".mp3"
       );
       if (res.statusCode == 200) {
         files.writeBytes(m, res.body.bytes());
