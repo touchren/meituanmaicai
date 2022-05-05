@@ -11,7 +11,7 @@ const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
 const COMMON_SLEEP_TIME_IN_MILLS = 150;
 // 是否先强行停止APP
-const ACTIVE_STOP_APP = 0;
+const ACTIVE_STOP_APP = 1;
 
 // 第几轮
 var round = 0;
@@ -200,7 +200,6 @@ function doInHome() {
 
 function doInPay() {
   confirm_to_pay();
-  musicNotify("02.pay");
 }
 
 function doInPaySuccess() {
@@ -598,7 +597,7 @@ function pay() {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           let confirmTxt = textMatches(
-            /(前方拥堵.*|确认订单|我知道了|我常买|去支付|验证指纹|支付中|免密支付|支付成功|支付订单)/
+            /(前方拥堵.*|确认订单|我知道了|我常买|去支付|验证指纹|支付中|免密支付|确认支付|支付成功|支付订单)/
           ).findOne(5000);
           // 成功情况1: [支付中] - [支付订单] - [免密支付]
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
@@ -664,14 +663,21 @@ function confirm_to_pay() {
   countP = 0;
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
-  let payBtn = textStartsWith("免密支付").findOne(2000);
+  let payBtn = textMatches("(免密支付|确认支付)").findOne(2000);
   if (payBtn) {
-    toastLog("已确认支付成功, 播放音乐");
-    musicNotify();
-    // 15分钟内支付即可, 为了防止误操作, 1分钟之后点击付款
-    sleep(60 * 1000);
+    log("订单已提交成功, 进入支付环节");
+    // 15分钟内支付即可, 为了防止误操作, 30秒之后点击付款
+    let secondPerTime = 3;
+    for (let i = 0; i < 10; i++) {
+      toastLog(
+        (10 - i) * secondPerTime + "%s秒之后点击[" + payBtn.text() + "]"
+      );
+      musicNotify("02.pay");
+      sleep(secondPerTime * 1000);
+    }
     clickByCoor(payBtn);
     sleep(5000);
+    isSuccessed = true;
   } else {
     log("下单失败, 马上重试");
     sleep(1500);
