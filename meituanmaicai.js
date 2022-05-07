@@ -3,9 +3,9 @@ const APP_NAME = "美团买菜";
 const PACKAGE_NAME = "com.meituan.retail.v.android";
 const AUTO_JS_PACKAGE_NAME = "com.taobao.idlefish.x";
 // 最大尝试轮数
-const MAX_ROUND = 10;
+const MAX_ROUND = 5;
 // 每轮最长重试次数 (平均单次1.2秒)
-const MAX_TIMES_PER_ROUND = 500;
+const MAX_TIMES_PER_ROUND = 300;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
@@ -29,6 +29,12 @@ var isSuccessed = false;
 // 任务中断次数
 var interruptCount = 0;
 
+// 是否启动录屏
+var activeRecord = 0;
+
+// 是否在录屏中
+var isRecording = false;
+
 // 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
   log("engines.myEngine().toString():" + engines.myEngine().toString());
@@ -49,7 +55,7 @@ unlock();
 // getConfig(); //暂不需要
 
 // 开始循环执行
-while (round < MAX_ROUND) {
+while (round < MAX_ROUND && !isSuccessed) {
   round++;
   log("开始第" + round + "轮抢菜");
   try {
@@ -73,8 +79,10 @@ while (round < MAX_ROUND) {
   }
 }
 log("程序正常结束");
+// 开始录屏
 
 function start() {
+  startRecord();
   count = 0;
   isFailed = false;
   isSuccessed = false;
@@ -96,6 +104,7 @@ function start() {
     }
   }
   sleep(600);
+
   count = 0;
   while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccessed) {
     // 1. 首页 [搜索] 当前位置只可自提
@@ -110,7 +119,10 @@ function start() {
     ).findOne(2000);
     console.timeEnd("判断当前页面耗时");
     if (page) {
-      log("进入条件1:[" + page.text() + "]");
+      if (page.text() != "日志" && page.text() != "困鱼") {
+        // 不能打印, 否则日志会刷屏
+        log("进入条件1:[" + page.text() + "]");
+      }
       if (page.text() == "我常买") {
         // 购物车
         doInItemSel();
@@ -155,7 +167,11 @@ function start() {
       sleep(2000);
     }
     let packageName = currentPackage();
-    if (packageName == PACKAGE_NAME || packageName == AUTO_JS_PACKAGE_NAME) {
+    if (
+      packageName == PACKAGE_NAME ||
+      packageName == AUTO_JS_PACKAGE_NAME ||
+      packageName == "com.android.systemui"
+    ) {
       interruptCount = 0;
     } else {
       interruptCount++;
@@ -177,6 +193,9 @@ function start() {
       //sleep(1000);
     }
   }
+
+  stopRecord();
+
   toastLog(
     "第" +
       round +
@@ -257,6 +276,7 @@ function closeClock() {
 function unlock() {
   try {
     require("./Unlock.js").exec();
+    commonWait();
   } catch (e) {
     console.error(e);
   }
@@ -325,10 +345,11 @@ function doInItemSel() {
     } else {
       if (submit_btn.text().indexOf("结算") != -1) {
         // 220501, 因为美团是整个购物车里面, 只要有一件商品售罄, 整个订单都会提交失败, 所以默认有商品就可以了, 不进行全选
-        // check_all2();
+        // 05/06 无货商品会自动移除/减数量
         // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
         // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
         if (submit_btn.text().indexOf("(") != -1) {
+          check_all2();
           log("点击->[" + submit_btn.text() + "]");
           submit_btn.parent().click(); //结算按钮点击
           // commonWait(); // 把一些打印日志的操作转移到点击之后的等待过程
@@ -340,10 +361,12 @@ function doInItemSel() {
           // 1. 配送运力已约满
           // 2. 门店已打烊
           // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
+          // |提交订单
           let nextBtn = textMatches(
-            /(我知道了|返回购物车|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
+            /(我知道了|返回购物车|前方拥堵.*|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
           ).findOne(5000);
           if (nextBtn) {
+            log("进入条件6: ", nextBtn.text());
             if (
               nextBtn.text() == "我知道了" ||
               nextBtn.text() == "返回购物车"
@@ -353,6 +376,12 @@ function doInItemSel() {
               nextBtn.parent().click();
               commonWait();
               console.timeEnd("点击->01[" + nextBtn.text() + "]耗时");
+              // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
+              sleep(600);
+            } else if (nextBtn.text().indexOf("前方拥堵") != -1) {
+              // TODO, 这个返回不确定是否需要
+              back();
+              commonWait();
               // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
               sleep(600);
             } else {
@@ -443,7 +472,7 @@ function check_all() {
 function check_all2() {
   // 先从底部购物车右上角查看all是多少
   let allNumber = id("img_shopping_cart")
-    .findOne(5000)
+    .findOne(1000)
     .parent()
     .child(1)
     .text();
@@ -587,17 +616,23 @@ function pay() {
           console.info("本轮[立即支付]已执行[%s]次", countP);
         }
         if (countP % 900 == 0) {
+          click_i_know();
           tempFailed = true;
-          console.info("本轮执行[%s]次,可能部分商品已经失效, [返回]", countP);
-          sleep(2500);
-          back();
+          console.info("本轮执行[%s]次,可能部分商品已经失效, 执行[返回]", countP);
+          // commonWait();
+          // TODO 05/07早上 1500ms 无法成功返回上一个页面, 尝试2000ms, 原先2500ms是可以的
+          //sleep(2000);
+          // 尝试连续返回2次是否可以
+          while (text("提交订单").exist()) {
+            back();
+          }
           commonWait();
           sleep(300);
         } else {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           let confirmTxt = textMatches(
-            /(前方拥堵.*|确认订单|我知道了|我常买|去支付|验证指纹|支付中|免密支付|确认支付|支付成功|支付订单)/
+            /(前方拥堵.*|确认订单|我知道了|我常买|继续支付|去支付|验证指纹|支付中|免密支付|确认支付|支付成功|支付订单)/
           ).findOne(5000);
           // 成功情况1: [支付中] - [支付订单] - [免密支付]
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
@@ -612,9 +647,8 @@ function pay() {
                 ".*(不符合活动规则|重新选择送达时段)"
               ).findOne(50);
               // 0503 出现[我知道了], 表示这次就失败了, 需要返回购物车重试
-              sleep(1000);
-              clickByCoor(confirmTxt);
               sleep(500);
+              clickByCoor(confirmTxt);
               if (infoTxt) {
                 log("[我知道了]的原因[%s]", infoTxt.text());
                 // 本次购买不符合活动规则, 这种情况下, 不会自动返回, 额外多等待一会
@@ -622,6 +656,7 @@ function pay() {
                 back();
               } else {
                 // |导致下单失败.|.*该商品*
+                // 05/06 抱歉, ***商品仅剩1件, 已为您调整为库存量~ (这种情况会自动返回)
                 console.error("其他原因导致的[我知道了]");
               }
               commonWait();
@@ -630,6 +665,13 @@ function pay() {
               // toast提示 盒马 当前购物高峰期人数较多, 请稍后重试
               // toast提示 美团 [前方拥堵，请稍后再试] , 会自动消失可以不用管
               // log("通过text查找到[%s],忽略", confirmTxt.text()); // 日志太多,选择关闭 22/05/02
+            } else if (confirmTxt.text().indexOf("继续支付") != -1) {
+              // [以下商品缺货了] - [以下商品数量发生变化] - [返回购物车] - [继续支付]
+              console.info("有商品缺货了");
+              // 说明请求服务器成功, 重置提交次数
+              countP = 0;
+              printPageUIObject();
+              clickByCoor(confirmTxt);
             } else {
               log("进入条件5:", confirmTxt.text());
               // 支付订单|确认订单|我常买 这两个页面,交给后续流程处理
@@ -669,9 +711,7 @@ function confirm_to_pay() {
     // 15分钟内支付即可, 为了防止误操作, 30秒之后点击付款
     let secondPerTime = 3;
     for (let i = 0; i < 10; i++) {
-      toastLog(
-        (10 - i) * secondPerTime + "%s秒之后点击[" + payBtn.text() + "]"
-      );
+      toastLog((10 - i) * secondPerTime + "秒之后点击[" + payBtn.text() + "]");
       musicNotify("02.pay");
       sleep(secondPerTime * 1000);
     }
@@ -684,6 +724,95 @@ function confirm_to_pay() {
     back();
   }
   log("DEBUG: [免密支付]结束");
+}
+
+// 开始录屏
+function startRecord() {
+  if (!isRecording && activeRecord == 1) {
+    swipe(700, 0, 750, 1300, 200);
+    commonWait();
+
+    // 录屏工具,关闭。,按钮
+    let startRecBtn = descMatches("(录屏工具|录制屏幕),关闭.*").findOne(3000);
+    if (startRecBtn) {
+      log("找到[开启录屏]按钮: ", startRecBtn.desc());
+      startRecBtn.click();
+      commonWait();
+      isRecording = true;
+    } else {
+      log("没有找到[开启录屏]按钮");
+      printPageUIObject();
+      back();
+      commonWait();
+    }
+
+    let confirmRecord = text("开始录制").findOne(500);
+    if (confirmRecord) {
+      confirmRecord.click();
+      commonWait();
+    }
+  } else {
+    log("已经在录屏中");
+  }
+}
+
+// 开始录屏
+function stopRecord() {
+  if (isRecording) {
+    swipe(700, 0, 750, 1300, 200);
+    commonWait();
+    // 录屏工具,关闭。,按钮
+    // 录制屏幕,开启。,按钮
+    let startRecBtn = descMatches("(录屏工具|录制屏幕),开启.*").findOne(3000);
+    if (startRecBtn) {
+      log("找到[关闭录屏]按钮: ", startRecBtn.desc());
+      if (startRecBtn.desc().indexOf("录屏工具") != -1) {
+        startRecBtn.click();
+        back();
+        commonWait();
+      } else {
+        // S8, 点击后无法关闭, 只是提示正在录屏, 969,317
+        back();
+        sleep(1000);
+        click(916, 306);
+        sleep(1500);
+        press(916, 306, 300);
+        sleep(2000);
+        back();
+        commonWait();
+      }
+      isRecording = false;
+      //printPageUIObject();
+    } else {
+      log("没有找到[关闭录屏]按钮");
+      back();
+      commonWait();
+      // printPageUIObject();
+    }
+  } else {
+    log("不在录屏中");
+  }
+}
+
+function printPageUIObject() {
+  textMatches(".+")
+    .find()
+    .forEach((child, idx) => {
+      if (idx < 50)
+        log("第" + (idx + 1) + "项(" + child.depth() + ")text:" + child.text());
+    });
+  descMatches(".+")
+    .find()
+    .forEach((child, idx) => {
+      if (idx < 50)
+        log("第" + (idx + 1) + "项(" + child.depth() + ")desc:" + child.desc());
+    });
+  idMatches(".+")
+    .find()
+    .forEach((child, idx) => {
+      if (idx < 50)
+        log("第" + (idx + 1) + "项(" + child.depth() + ")id:" + child.id());
+    });
 }
 
 function musicNotify(name) {
@@ -756,34 +885,39 @@ function kill_app(packageName) {
       return false;
     }
   }
+  log("即将停止的APP: ", name);
   app.openAppSetting(name);
   commonWait();
-  text(app.getAppName(name)).waitFor();
+  text(app.getAppName(name)).findOne(2000);
   sleep(300);
   let is_sure = textMatches(/(.*强.*|.*停.*|.*结.*|.*行.*|.*FORCE.*)/).findOne(
     3000
   );
   // log(is_sure);
   if (is_sure.enabled()) {
+    log("找到停止按钮: ", is_sure.text());
+    commonWait();
     is_sure.click();
     commonWait();
-    commonWait();
+
     buttons = textMatches(
       /(.*强.*|.*停.*|.*结.*|.*行.*|确定|是|.*FORCE.*)/
     ).find();
     if (buttons.length > 0) {
-      buttons[buttons.length - 1].click();
+      log("找到确认停止按钮: ", buttons[buttons.length - 1].text());
       commonWait();
+      buttons[buttons.length - 1].click();
       commonWait();
     } else {
       // 异常情况
       toast(app.getAppName(name) + "应用没有找到确认按钮");
-      sleep(30000);
+      sleep(30 * 1000);
     }
 
     log(app.getAppName(name) + "应用已被关闭");
     sleep(500);
     back();
+    commonWait();
   } else {
     log(app.getAppName(name) + "应用不能被正常关闭或不在后台运行");
     sleep(3000);
