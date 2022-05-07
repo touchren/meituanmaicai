@@ -12,6 +12,10 @@ const ACTIVE_SUBMIT = 1;
 const COMMON_SLEEP_TIME_IN_MILLS = 150;
 // 是否先强行停止APP
 const ACTIVE_STOP_APP = 1;
+// 几秒提醒一次
+const SECOND_PER_TIME = 3;
+// 开卖时间
+const SALE_BEGIN_TIME = ["06:00"];
 
 // 第几轮
 var round = 0;
@@ -31,6 +35,9 @@ var interruptCount = 0;
 
 // 是否启动录屏
 var activeRecord = 0;
+
+// 是否启动高峰期录屏(准点开售)
+var activePeakRecord = 1;
 
 // 是否在录屏中
 var isRecording = false;
@@ -65,20 +72,21 @@ while (round < MAX_ROUND && !isSuccessed) {
     log(e.stack);
   }
 
-  let randomSleep = random(3, 20);
-  let secondPerTime = 3;
-  for (let i = 0; i < randomSleep; i++) {
+  let totalTime = random(3, 20);
+  for (let i = 0; i < totalTime; i++) {
     toastLog(
       "第" +
         round +
         "轮抢菜执行结束, 等待" +
-        (randomSleep * secondPerTime - i * secondPerTime) +
+        (totalTime * SECOND_PER_TIME - i * SECOND_PER_TIME) +
         "秒后继续"
     );
-    sleep(secondPerTime * 1000);
+    sleep(SECOND_PER_TIME * 1000);
   }
 }
-log("程序正常结束");
+home();
+toastLog("程序已结束");
+
 // 开始录屏
 
 function start() {
@@ -113,6 +121,9 @@ function start() {
     // 4. 支付订单 [支付订单,免密支付], 完成
     // 5. 订单详情 [订单详情]
     // toast提示 [前方拥堵，请稍后再试] , 会自动消失可以不用管
+    if (activePeakRecord == 1) {
+      checkSaleTime();
+    }
     console.time("判断当前页面耗时");
     let page = textMatches(
       /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|支付成功|搜索|困鱼|日志)/
@@ -208,6 +219,27 @@ function start() {
   );
 }
 
+function checkSaleTime() {
+  let nextTime = new Date(new Date().getTime() + 60 * 1000);
+  log(nextTime);
+  let hour = nextTime.getHours();
+  if (hour < 10) {
+    hour = "0" + hour;
+  }
+  let minute = nextTime.getMinutes();
+  if (minute < 10) {
+    minute = "0" + minute;
+  }
+  var second = nextTime.getSeconds();
+  let nextTimeStr = hour + ":" + minute;
+  if (SALE_BEGIN_TIME.indexOf(nextTimeStr) != -1) {
+    // 1分钟 之后开始销售
+    log("还有[%s]秒开始销售", 60 - second);
+    activeRecord = 1;
+    startRecord();
+  }
+}
+
 function waitCheckLog() {
   //log("正在查看日志")
   sleep(3000);
@@ -222,15 +254,19 @@ function doInPay() {
 }
 
 function doInPaySuccess() {
-  musicNotify("03.pay_success");
   isSuccessed = true;
   // 等待一定时间
-  sleep(30 * 1000);
+  let totalTime = 60 / SECOND_PER_TIME;
+  for (let i = 0; i < totalTime; i++) {
+    toastLog((totalTime - i) * SECOND_PER_TIME + "秒之后完成");
+    musicNotify("03.pay_success");
+    sleep(SECOND_PER_TIME * 1000);
+  }
   // 返回购物车页面
   let returnBtn = text("完成").findOne(1000);
   if (returnBtn) {
     log("找到[%s]按钮", returnBtn.text());
-    // clickByCoor(returnBtn);
+    clickByCoor(returnBtn);
     commonWait();
   } else {
     musicNotify("09.error");
@@ -618,7 +654,10 @@ function pay() {
         if (countP % 900 == 0) {
           click_i_know();
           tempFailed = true;
-          console.info("本轮执行[%s]次,可能部分商品已经失效, 执行[返回]", countP);
+          console.info(
+            "本轮执行[%s]次,可能部分商品已经失效, 执行[返回]",
+            countP
+          );
           // commonWait();
           // TODO 05/07早上 1500ms 无法成功返回上一个页面, 尝试2000ms, 原先2500ms是可以的
           //sleep(2000);
@@ -709,11 +748,13 @@ function confirm_to_pay() {
   if (payBtn) {
     log("订单已提交成功, 进入支付环节");
     // 15分钟内支付即可, 为了防止误操作, 30秒之后点击付款
-    let secondPerTime = 3;
-    for (let i = 0; i < 10; i++) {
-      toastLog((10 - i) * secondPerTime + "秒之后点击[" + payBtn.text() + "]");
+    let totalTime = 30 / SECOND_PER_TIME;
+    for (let i = 0; i < totalTime; i++) {
+      toastLog(
+        (totalTime - i) * SECOND_PER_TIME + "秒之后点击[" + payBtn.text() + "]"
+      );
       musicNotify("02.pay");
-      sleep(secondPerTime * 1000);
+      sleep(SECOND_PER_TIME * 1000);
     }
     clickByCoor(payBtn);
     sleep(5000);
@@ -733,7 +774,8 @@ function startRecord() {
     commonWait();
 
     // 录屏工具,关闭。,按钮
-    let startRecBtn = descMatches("(录屏工具|录制屏幕),关闭.*").findOne(3000);
+    // 每个手机不一样, 需要进行适配
+    let startRecBtn = descMatches("(录屏工具|录制屏幕),关闭.*").findOne(1000);
     if (startRecBtn) {
       log("找到[开启录屏]按钮: ", startRecBtn.desc());
       startRecBtn.click();
@@ -752,7 +794,7 @@ function startRecord() {
       commonWait();
     }
   } else {
-    log("已经在录屏中");
+    // log("已经在录屏中或者不需要录屏");
   }
 }
 
