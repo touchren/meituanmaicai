@@ -205,8 +205,6 @@ function start() {
     }
   }
 
-  stopRecord();
-
   toastLog(
     "第" +
       round +
@@ -217,11 +215,12 @@ function start() {
       ", isSuccessed:" +
       isSuccessed
   );
+
+  stopRecord();
 }
 
 function checkSaleTime() {
   let nextTime = new Date(new Date().getTime() + 60 * 1000);
-  log(nextTime);
   let hour = nextTime.getHours();
   if (hour < 10) {
     hour = "0" + hour;
@@ -234,9 +233,12 @@ function checkSaleTime() {
   let nextTimeStr = hour + ":" + minute;
   if (SALE_BEGIN_TIME.indexOf(nextTimeStr) != -1) {
     // 1分钟 之后开始销售
-    log("还有[%s]秒开始销售", 60 - second);
-    activeRecord = 1;
-    startRecord();
+    toastLog("还有[%s]秒开放下单", 60 - second);
+    if (second < 30 && second > 20) {
+      // 避免不适配的手机一直重试
+      activeRecord = 1;
+      startRecord();
+    }
   }
 }
 
@@ -397,9 +399,9 @@ function doInItemSel() {
           // 1. 配送运力已约满
           // 2. 门店已打烊
           // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
-          // |提交订单
+          //
           let nextBtn = textMatches(
-            /(我知道了|返回购物车|前方拥堵.*|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
+            /(我知道了|返回购物车|前方拥堵.*|提交订单|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
           ).findOne(5000);
           if (nextBtn) {
             log("进入条件6: ", nextBtn.text());
@@ -415,11 +417,11 @@ function doInItemSel() {
               // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
               sleep(600);
             } else if (nextBtn.text().indexOf("前方拥堵") != -1) {
-              // TODO, 这个返回不确定是否需要
-              back();
-              commonWait();
+              // 这个toast有可能出现购物车, 也可能出现在[提交订单]页面
+              //back();
+              //commonWait();
               // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
-              sleep(600);
+              //sleep(600);
             } else {
               // 立即支付|极速支付|20:00-22:00
               log("没有出现我知道了等失败信息");
@@ -507,109 +509,125 @@ function check_all() {
 
 function check_all2() {
   // 先从底部购物车右上角查看all是多少
-  let allNumber = id("img_shopping_cart")
-    .findOne(1000)
-    .parent()
-    .child(1)
-    .text();
-  // 构造"结算(allNumber)"的字符串用于匹配
-  let matchText = "结算(" + allNumber + ")";
-  // 找到结算按钮的text
-  let realText = textStartsWith("结算").findOne(200).text();
-  // 如果两者不匹配，则没有全选中
-  let allChecked = matchText === realText;
-  if (!allChecked) {
-    let radio_checkall = className("android.widget.ImageView")
-      .depth(22)
-      .findOne(200);
-    radio_checkall.parent().click();
+  let shopCartBtn = id("img_shopping_cart").findOne(100);
+  if (shopCartBtn) {
+    let allNumber = shopCartBtn.parent().child(1).text();
+    // 构造"结算(allNumber)"的字符串用于匹配
+    let matchText = "结算(" + allNumber + ")";
+    // 找到结算按钮的text
+    let realText = textStartsWith("结算").findOne(200).text();
+    // 如果两者不匹配，则没有全选中
+    let allChecked = matchText === realText;
+    if (!allChecked) {
+      let radio_checkall = className("android.widget.ImageView")
+        .depth(22)
+        .findOne(200);
+      radio_checkall.parent().click();
+    }
+  }
+}
+
+function backInSubmit() {
+  let checkTxt = text("提交订单").findOne(100);
+  if (checkTxt.exists()) {
+    log("通过左上角图标执行[返回]");
+    clickByCoor(
+      checkTxt.parent().find(className("android.widget.ImageView")).get(0)
+    );
   }
 }
 
 function doInSubmit() {
-  click_i_know();
+  // click_i_know();
   countT++;
   let timeTxt = className("android.widget.TextView")
     .depth(19)
     .textMatches(/([0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/)
-    .findOne(500);
+    .findOne(300);
   if (timeTxt) {
     log("INFO 已选择时间:" + timeTxt.text());
     pay();
   } else {
-    // 220501, 理论上, 现在应该不会进这段逻辑了
-    let arriveTimeBtn = textStartsWith("送达时间").findOne(1000);
-    if (arriveTimeBtn) {
-      //选择送达时间
-      arriveTimeBtn.parent().click();
-      log("选择时间第" + round + "-" + countT + "次");
-      if (countT == 1 || countT % 5 == 0) {
-        toast(
-          "第" +
-            round +
-            "-" +
-            countT +
-            "次点击->" +
-            textStartsWith("送达时间").findOne(2000).text()
-        );
-      }
+    if (textMatches(/(前方拥堵.*)/).exists()) {
+      // 0508 目前这种情况就是没有挤进去, 需要返回购物车
+      backInSubmit();
+    } else if (textMatches(/(立即支付|极速支付)/).exists()) {
+      // 220501, 理论上, 现在应该不会进这段逻辑了
+      let arriveTimeBtn = textStartsWith("送达时间").findOne(1000);
+      if (arriveTimeBtn) {
+        //选择送达时间
+        arriveTimeBtn.parent().click();
+        log("选择时间第" + round + "-" + countT + "次");
+        if (countT == 1 || countT % 5 == 0) {
+          toast(
+            "第" +
+              round +
+              "-" +
+              countT +
+              "次点击->" +
+              textStartsWith("送达时间").findOne(2000).text()
+          );
+        }
 
-      commonWait();
-      sleep(500);
-      var selectedTime = null;
-      hourClock_unfilterd = textContains(":00").find();
-      hourClock = hourClock_unfilterd.filter(
-        (item) => item.clickable && item.checkable && enabled
-      );
-      if (hourClock.length > 0) {
-        selectedTime = hourClock[0];
-      } else {
-        quarClock_unfilterd = textContains(":15").find();
-        quarClock = quarClock_unfilterd.filter(
+        commonWait();
+        sleep(500);
+        var selectedTime = null;
+        hourClock_unfilterd = textContains(":00").find();
+        hourClock = hourClock_unfilterd.filter(
           (item) => item.clickable && item.checkable && enabled
         );
-        if (quarClock.length > 0) {
-          selectedTime = quarClock[0];
+        if (hourClock.length > 0) {
+          selectedTime = hourClock[0];
         } else {
-          halfClock_unfilterd = textContains(":30").find();
-          halfClock = halfClock_unfilterd.filter(
+          quarClock_unfilterd = textContains(":15").find();
+          quarClock = quarClock_unfilterd.filter(
             (item) => item.clickable && item.checkable && enabled
           );
-          if (halfClock.length > 0) {
-            selectedTime = halfClock[0];
+          if (quarClock.length > 0) {
+            selectedTime = quarClock[0];
           } else {
-            clock_last_unfilterd = textContains(":45").find();
-            clock_last = clock_last_unfilterd.filter(
+            halfClock_unfilterd = textContains(":30").find();
+            halfClock = halfClock_unfilterd.filter(
               (item) => item.clickable && item.checkable && enabled
             );
-            if (clock_last.length > 0) {
-              selectedTime = clock_last[0];
+            if (halfClock.length > 0) {
+              selectedTime = halfClock[0];
+            } else {
+              clock_last_unfilterd = textContains(":45").find();
+              clock_last = clock_last_unfilterd.filter(
+                (item) => item.clickable && item.checkable && enabled
+              );
+              if (clock_last.length > 0) {
+                selectedTime = clock_last[0];
+              }
             }
           }
         }
-      }
 
-      if (selectedTime) {
-        log("点击->[" + selectedTime.text() + "]");
-        selectedTime.parent().click();
-        commonWait();
-        let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
-        // 判断是否提示运力已满
-        if (retry) {
-          log("点击->[" + retry.text() + "]");
-          retry.parent().click();
+        if (selectedTime) {
+          log("点击->[" + selectedTime.text() + "]");
+          selectedTime.parent().click();
           commonWait();
+          let retry = textMatches(/(我知道了|返回购物车)/).findOne(1000);
+          // 判断是否提示运力已满
+          if (retry) {
+            log("点击->[" + retry.text() + "]");
+            retry.parent().click();
+            commonWait();
+          }
+        } else {
+          log("没有可用时间段");
+          if (countT > MAX_TIMES_PER_ROUND) {
+            toast("抢菜选择时间失败");
+            return;
+          }
         }
+        log("DEBUG: [选择时间]结束");
       } else {
-        log("没有可用时间段");
-        if (countT > MAX_TIMES_PER_ROUND) {
-          toast("抢菜选择时间失败");
-          return;
-        }
+        console.error("ERROR1: 没有[送达时间]按钮");
       }
-      log("DEBUG: [选择时间]结束");
     } else {
-      console.error("ERROR1: 没有[送达时间]按钮");
+      backInSubmit();
     }
   }
 }
@@ -620,11 +638,13 @@ function printReason(iKnow) {
   iKnow
     .parent()
     .parent()
-    .parent()
     .find(textMatches(".+"))
     .forEach((child, idx) => {
       if (needPrint) {
-        if (child.text() != "订单已约满") {
+        if (
+          child.text() != "订单已约满" &&
+          child.text() != "当前不在可下单时段"
+        ) {
           log(
             "第" + (idx + 1) + "项(" + child.depth() + ")text:" + child.text()
           );
@@ -637,7 +657,7 @@ function printReason(iKnow) {
 
 function pay() {
   log("DEBUG: [立即支付|极速支付]-" + countP + "开始");
-  let submitBtn = textMatches(/(立即支付|极速支付)/).findOne(1000);
+  let submitBtn = textMatches(/(立即支付|极速支付)/).findOne(300);
   // 虽然名字叫做 [立即支付], 其实还是只是[提交订单]的效果
   if (submitBtn) {
     log("进入条件4: [%s]", submitBtn.text());
@@ -647,26 +667,23 @@ function pay() {
       let tempFailed = false;
       while (submitBtn && !tempFailed) {
         countP++;
-        if (countP % 200 == 2) {
+        if (countP % 200 == 0) {
           musicNotify("01.submit");
-          console.info("本轮[立即支付]已执行[%s]次", countP);
+          toastLog("本轮[立即支付]已执行[%s]次", countP);
         }
         if (countP % 900 == 0) {
           click_i_know();
           tempFailed = true;
-          console.info(
-            "本轮执行[%s]次,可能部分商品已经失效, 执行[返回]",
-            countP
-          );
+          toastLog("本轮执行[%s]次,可能部分商品已经失效, 执行[返回]", countP);
           // commonWait();
           // TODO 05/07早上 1500ms 无法成功返回上一个页面, 尝试2000ms, 原先2500ms是可以的
           //sleep(2000);
           // 尝试连续返回2次是否可以
-          while (text("提交订单").exist()) {
-            back();
+          while (text("提交订单").exists()) {
+            backInSubmit();
           }
-          commonWait();
-          sleep(300);
+          //commonWait();
+          //sleep(300);
         } else {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
@@ -781,6 +798,7 @@ function startRecord() {
       startRecBtn.click();
       commonWait();
       isRecording = true;
+      sleep(3000);
     } else {
       log("没有找到[开启录屏]按钮");
       printPageUIObject();
@@ -792,6 +810,7 @@ function startRecord() {
     if (confirmRecord) {
       confirmRecord.click();
       commonWait();
+      sleep(5000);
     }
   } else {
     // log("已经在录屏中或者不需要录屏");
@@ -831,6 +850,7 @@ function stopRecord() {
       commonWait();
       // printPageUIObject();
     }
+    sleep(3000);
   } else {
     log("不在录屏中");
   }
