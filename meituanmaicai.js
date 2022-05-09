@@ -13,7 +13,7 @@ const COMMON_SLEEP_TIME_IN_MILLS = 150;
 // 是否先强行停止APP
 const ACTIVE_STOP_APP = 1;
 // 几秒提醒一次
-const SECOND_PER_TIME = 3;
+const SECOND_PER_TIME = 5;
 // 开卖时间
 const SALE_BEGIN_TIME = ["06:00"];
 
@@ -62,7 +62,7 @@ unlock();
 // getConfig(); //暂不需要
 
 // 开始循环执行
-while (round < MAX_ROUND && !isSuccessed) {
+while (round < MAX_ROUND) {
   round++;
   log("开始第" + round + "轮抢菜");
   try {
@@ -72,7 +72,7 @@ while (round < MAX_ROUND && !isSuccessed) {
     log(e.stack);
   }
 
-  let totalTime = random(3, 20);
+  let totalTime = random(2, 8);
   for (let i = 0; i < totalTime; i++) {
     toastLog(
       "第" +
@@ -124,11 +124,11 @@ function start() {
     if (activePeakRecord == 1) {
       checkSaleTime();
     }
-    console.time("判断当前页面耗时");
+    //console.time("判断当前页面耗时");
     let page = textMatches(
       /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|支付成功|搜索|困鱼|日志)/
-    ).findOne(2000);
-    console.timeEnd("判断当前页面耗时");
+    ).findOne(2000); // 大约80ms
+    //console.timeEnd("判断当前页面耗时");
     if (page) {
       if (page.text() != "日志" && page.text() != "困鱼") {
         // 不能打印, 否则日志会刷屏
@@ -233,11 +233,12 @@ function checkSaleTime() {
   let nextTimeStr = hour + ":" + minute;
   if (SALE_BEGIN_TIME.indexOf(nextTimeStr) != -1) {
     // 1分钟 之后开始销售
-    toastLog("还有[%s]秒开放下单", 60 - second);
-    if (second < 30 && second > 20) {
+    toastLog("还有[" + (60 - second) + "]秒开放下单");
+    if (second < 20) {
       // 避免不适配的手机一直重试
       activeRecord = 1;
       startRecord();
+      activeRecord = 0;
     }
   }
 }
@@ -258,22 +259,20 @@ function doInPay() {
 function doInPaySuccess() {
   isSuccessed = true;
   // 等待一定时间
-  let totalTime = 60 / SECOND_PER_TIME;
-  for (let i = 0; i < totalTime; i++) {
+  let totalTime = 30 / SECOND_PER_TIME;
+  for (let i = 0; i < totalTime && text("完成").exists(); i++) {
     toastLog((totalTime - i) * SECOND_PER_TIME + "秒之后完成");
     musicNotify("03.pay_success");
     sleep(SECOND_PER_TIME * 1000);
   }
   // 返回购物车页面
-  let returnBtn = text("完成").findOne(1000);
+  let returnBtn = text("完成").findOne(100);
   if (returnBtn) {
     log("找到[%s]按钮", returnBtn.text());
     clickByCoor(returnBtn);
     commonWait();
   } else {
-    musicNotify("09.error");
-    console.error("ERROR: 找不到[支付成功]的[完成]按钮");
-    sleep(2000);
+    log("可能已经手工点击[完成按钮]");
   }
 }
 
@@ -290,7 +289,7 @@ function confirmAddress() {
     }
   } else {
     musicNotify("05.need_manual");
-    sleep(3000);
+    sleep(SECOND_PER_TIME * 1000);
   }
 }
 
@@ -343,18 +342,22 @@ function to_mall_cart() {
 }
 
 function reload_mall_cart() {
-  // 切换标签页面
-  // log("重新加载购物车");
-  randomSwipe(
-    560 + random(0, 50),
-    800 + random(0, 100),
-    500 + random(0, 50),
-    1500 + random(0, 100)
-  );
-  if (ACTIVE_SUBMIT == 1) {
-    sleep(100, random(0, 1000));
+  if (textMatches(".*暂停线上服务.*").exists()) {
+    console.info("检测到[暂停线上服务]");
+    isFailed = true;
   } else {
-    sleep(5000, random(0, 5000));
+    // log("重新加载购物车");
+    randomSwipe(
+      560 + random(0, 50),
+      800 + random(0, 100),
+      500 + random(0, 50),
+      1500 + random(0, 100)
+    );
+    if (ACTIVE_SUBMIT == 1) {
+      sleep(100, random(0, 1000));
+    } else {
+      sleep(5000, random(0, 5000));
+    }
   }
 }
 
@@ -375,7 +378,7 @@ function doInItemSel() {
 
   let submit_btn = textMatches("结算.*|重新加载").findOne(1000);
   if (!submit_btn) {
-    log("未找到结算按钮，刷新页面");
+    // log("未找到结算按钮，刷新页面");
     reload_mall_cart();
   } else {
     if (ACTIVE_SUBMIT == 0) {
@@ -399,9 +402,9 @@ function doInItemSel() {
           // 1. 配送运力已约满
           // 2. 门店已打烊
           // 3. 订单已约满 (这种情况可能会等比较长时间才返回)
-          //
+          // 05/09 这里不能使用[提交订单]来判断, 会影响效率
           let nextBtn = textMatches(
-            /(我知道了|返回购物车|前方拥堵.*|提交订单|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
+            /(我知道了|返回购物车|前方拥堵.*|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
           ).findOne(5000);
           if (nextBtn) {
             log("进入条件6: ", nextBtn.text());
@@ -412,16 +415,17 @@ function doInItemSel() {
               console.time("点击->01[" + nextBtn.text() + "]耗时");
               printReason(nextBtn);
               nextBtn.parent().click();
-              commonWait();
               console.timeEnd("点击->01[" + nextBtn.text() + "]耗时");
-              // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
-              sleep(600);
+              if (text("提交订单").exists()) {
+                backInSubmit();
+              } else {
+                // 如果在购物车页面的话
+                // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
+                commonWait();
+                sleep(600);
+              }
             } else if (nextBtn.text().indexOf("前方拥堵") != -1) {
               // 这个toast有可能出现购物车, 也可能出现在[提交订单]页面
-              //back();
-              //commonWait();
-              // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
-              //sleep(600);
             } else {
               // 立即支付|极速支付|20:00-22:00
               log("没有出现我知道了等失败信息");
@@ -528,9 +532,8 @@ function check_all2() {
 }
 
 function backInSubmit() {
-  let checkTxt = text("提交订单").findOne(100);
-  if (checkTxt.exists()) {
-    log("通过左上角图标执行[返回]");
+  if (text("提交订单").exists()) {
+    // log("通过左上角图标执行[返回]");
     clickByCoor(
       checkTxt.parent().find(className("android.widget.ImageView")).get(0)
     );
@@ -550,11 +553,12 @@ function doInSubmit() {
   } else {
     if (textMatches(/(前方拥堵.*)/).exists()) {
       // 0508 目前这种情况就是没有挤进去, 需要返回购物车
+      log("出现[前方拥堵.*], 返回购物车");
       backInSubmit();
     } else if (textMatches(/(立即支付|极速支付)/).exists()) {
-      // 220501, 理论上, 现在应该不会进这段逻辑了
       let arriveTimeBtn = textStartsWith("送达时间").findOne(1000);
       if (arriveTimeBtn) {
+        // 220501, 理论上, 现在应该不会进这段逻辑了
         //选择送达时间
         arriveTimeBtn.parent().click();
         log("选择时间第" + round + "-" + countT + "次");
@@ -627,6 +631,7 @@ function doInSubmit() {
         console.error("ERROR1: 没有[送达时间]按钮");
       }
     } else {
+      log("[提交订单]进入空白页面, 返回购物车");
       backInSubmit();
     }
   }
@@ -669,12 +674,14 @@ function pay() {
         countP++;
         if (countP % 200 == 0) {
           musicNotify("01.submit");
-          toastLog("本轮[立即支付]已执行[%s]次", countP);
+          toastLog("本轮[立即支付]已执行[" + countP + "]次");
         }
         if (countP % 900 == 0) {
           click_i_know();
           tempFailed = true;
-          toastLog("本轮执行[%s]次,可能部分商品已经失效, 执行[返回]", countP);
+          toastLog(
+            "本轮执行[" + countP + "]次,可能部分商品已经失效, 执行[返回]"
+          );
           // commonWait();
           // TODO 05/07早上 1500ms 无法成功返回上一个页面, 尝试2000ms, 原先2500ms是可以的
           //sleep(2000);
