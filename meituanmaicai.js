@@ -5,7 +5,8 @@ const AUTO_JS_PACKAGE_NAME = "com.taobao.idlefish.x";
 // 最大尝试轮数
 const MAX_ROUND = 5;
 // 每轮最长重试次数 (平均单次1.2秒)
-const MAX_TIMES_PER_ROUND = 300;
+// 05/10 10分钟300次
+const MAX_TIMES_PER_ROUND = 600;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
@@ -132,7 +133,9 @@ function start() {
     if (page) {
       if (page.text() != "日志" && page.text() != "困鱼") {
         // 不能打印, 否则日志会刷屏
-        log("进入条件1:[" + page.text() + "]");
+        log(
+          "抢菜第" + round + "-" + count + "次,进入条件1:[" + page.text() + "]"
+        );
       }
       if (page.text() == "我常买") {
         // 购物车
@@ -336,7 +339,8 @@ function to_mall_cart() {
       commonWait();
       text("删除").findOne(2000);
     } else {
-      console.error("ERROR6: 未找到购物车按钮");
+      // 刚启动的时候, 有可能出现确认地址框的弹层, 可能会无法识别出购物车按钮
+      console.log("未找到购物车按钮");
     }
   }
 }
@@ -354,9 +358,9 @@ function reload_mall_cart() {
       1500 + random(0, 100)
     );
     if (ACTIVE_SUBMIT == 1) {
-      sleep(100, random(0, 1000));
+      //sleep(random(100, 200));
     } else {
-      sleep(5000, random(0, 5000));
+      sleep(random(5000, 9000));
     }
   }
 }
@@ -371,12 +375,11 @@ function doInItemSel() {
     return;
   }
   count++;
-  log("抢菜第" + round + "-" + count + "次");
-  if (count == 1 || count % 5 == 0) {
+  if (count == 1 || count % SECOND_PER_TIME == 0) {
     toast("抢菜第" + round + "轮第" + count + "次");
   }
 
-  let submit_btn = textMatches("结算.*|重新加载").findOne(1000);
+  let submit_btn = textMatches("结算.*|重新加载").findOne(500);
   if (!submit_btn) {
     // log("未找到结算按钮，刷新页面");
     reload_mall_cart();
@@ -405,7 +408,7 @@ function doInItemSel() {
           // 05/09 这里不能使用[提交订单]来判断, 会影响效率
           let nextBtn = textMatches(
             /(我知道了|返回购物车|前方拥堵.*|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
-          ).findOne(5000);
+          ).findOne(1500);
           if (nextBtn) {
             log("进入条件6: ", nextBtn.text());
             if (
@@ -513,26 +516,32 @@ function check_all() {
 
 function check_all2() {
   // 先从底部购物车右上角查看all是多少
-  let shopCartBtn = id("img_shopping_cart").findOne(100);
-  if (shopCartBtn) {
-    let allNumber = shopCartBtn.parent().child(1).text();
-    // 构造"结算(allNumber)"的字符串用于匹配
-    let matchText = "结算(" + allNumber + ")";
-    // 找到结算按钮的text
-    let realText = textStartsWith("结算").findOne(200).text();
-    // 如果两者不匹配，则没有全选中
-    let allChecked = matchText === realText;
-    if (!allChecked) {
-      let radio_checkall = className("android.widget.ImageView")
-        .depth(22)
-        .findOne(200);
-      radio_checkall.parent().click();
+  try {
+    let shopCartBtn = id("img_shopping_cart").findOne(100);
+    if (shopCartBtn) {
+      let allNumber = shopCartBtn.parent().child(1).text();
+      // 构造"结算(allNumber)"的字符串用于匹配
+      let matchText = "结算(" + allNumber + ")";
+      // 找到结算按钮的text
+      let realText = textStartsWith("结算").findOne(200).text();
+      // 如果两者不匹配，则没有全选中
+      let allChecked = matchText === realText;
+      if (!allChecked) {
+        let radio_checkall = className("android.widget.ImageView")
+          .depth(22)
+          .findOne(200);
+        radio_checkall.parent().click();
+      }
     }
+  } catch (e) {
+    console.error(e);
+    console.error(e.stack);
   }
 }
 
 function backInSubmit() {
-  if (text("提交订单").exists()) {
+  let checkTxt = text("提交订单").findOne(100);
+  if (checkTxt) {
     // log("通过左上角图标执行[返回]");
     clickByCoor(
       checkTxt.parent().find(className("android.widget.ImageView")).get(0)
@@ -562,7 +571,7 @@ function doInSubmit() {
         //选择送达时间
         arriveTimeBtn.parent().click();
         log("选择时间第" + round + "-" + countT + "次");
-        if (countT == 1 || countT % 5 == 0) {
+        if (countT == 1 || countT % SECOND_PER_TIME == 0) {
           toast(
             "第" +
               round +
@@ -676,21 +685,17 @@ function pay() {
           musicNotify("01.submit");
           toastLog("本轮[立即支付]已执行[" + countP + "]次");
         }
-        if (countP % 900 == 0) {
+        if (countP % 1900 == 0) {
+          // 05/10 按照目前的逻辑, 缺货的情况下, 可以点击[继续支付], 所以也不太需要返回购物车了
           click_i_know();
           tempFailed = true;
           toastLog(
             "本轮执行[" + countP + "]次,可能部分商品已经失效, 执行[返回]"
           );
-          // commonWait();
-          // TODO 05/07早上 1500ms 无法成功返回上一个页面, 尝试2000ms, 原先2500ms是可以的
-          //sleep(2000);
-          // 尝试连续返回2次是否可以
+          // TODO 05/09 尝试尽快返回
           while (text("提交订单").exists()) {
             backInSubmit();
           }
-          //commonWait();
-          //sleep(300);
         } else {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
@@ -740,7 +745,8 @@ function pay() {
               // 支付订单|确认订单|我常买 这两个页面,交给后续流程处理
             }
           } else {
-            console.error("ERROR7: 既没有[确认订单], 也没有[我知道了]等按钮");
+            // TODO, 捡漏成功进入[支付成功], 但是这里报错了, 可能是处理时间刚好到了5000ms
+            console.error("ERROR5: 既没有[确认订单], 也没有[我知道了]等按钮");
             musicNotify("09.error");
             //back();
             //commonWait();
