@@ -4,7 +4,7 @@ const PACKAGE_NAME = "com.meituan.retail.v.android";
 const AUTO_JS_PACKAGE_NAME = "com.taobao.idlefish.x";
 // 最大尝试轮数
 const MAX_ROUND = 5;
-// 每轮最长重试次数 (平均单次1.2秒)
+// 每轮最长重试次数 (捡漏模式平均单次1.42秒)
 // 05/10 10分钟300次
 const MAX_TIMES_PER_ROUND = 600;
 // 是否启用 结算 功能, 0:不启用, 1:启用
@@ -184,7 +184,7 @@ function start() {
     } else {
       console.error("ERROR4: 未知页面");
       printPageUIObject();
-      sleep(100);
+      sleep(200);
       //musicNotify("09.error");
       //sleep(2000);
     }
@@ -348,6 +348,7 @@ function to_mall_cart() {
       log("已进入购物车,等待购物车加载完成");
       commonWait();
       text("删除").findOne(2000);
+      sleep(500);
     } else {
       // 刚启动的时候, 有可能出现确认地址框的弹层, 可能会无法识别出购物车按钮
       console.log("未找到购物车按钮");
@@ -411,10 +412,12 @@ function doInItemSel() {
             check_all2();
           }
           let tempI = 0;
-          while (submit_btn && tempI < 10) {
+          while (submit_btn && tempI < 20) {
+            // sleep(10)的情况下, 整个循环平均单次40ms
             tempI++;
+            // submit_btn.parent().click(); // 0518, 进入购物两次里面就有会有一次一直点击失效, 即使持续20次, 3秒多的情况下(页面应该已经加载完成了)
             clickByCoorNoWait(submit_btn);
-            sleep(10);
+            sleep(tempI * 10);
             submit_btn = textStartsWith("结算(").findOnce();
           }
           // commonWait(); // 把一些打印日志的操作转移到点击之后的等待过程
@@ -722,7 +725,12 @@ function pay() {
             backInSubmit();
           }
         } else {
-          submitBtn.parent().click();
+          // 05/18 两种点击方式都进行尝试
+          if (countP % 2 == 0) {
+            submitBtn.parent().click();
+          } else {
+            clickByCoorNoWait(submitBtn);
+          }
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           // 前方拥堵.*| 不在需要判断
           // 05/18 增加 返回购物车 判断
@@ -784,7 +792,6 @@ function pay() {
               // 支付订单|确认订单|我常买 这两个页面,交给后续流程处理
             }
           } else {
-            // TODO, 捡漏成功进入[支付成功], 但是这里报错了, 可能是处理时间刚好到了5000ms
             //console.error("ERROR5: 既没有[确认订单], 也没有[我知道了]等按钮");
             //musicNotify("09.error");
             //back();
@@ -794,6 +801,15 @@ function pay() {
         submitBtn = textMatches(/(立即支付|极速支付)/).findOnce();
       }
       log("已经往下流转, 本次失败:", tempFailed);
+      if (!tempFailed) {
+        // 没有失败的情况下, 正常应该进入 [去支付] 的过渡页面
+        // 11:56:52.056 - 11:56:54.767 com.meituan.retail.v.android:id/cashier_tv_toast_info
+        // 11:56:55.650 - 11:56:56.150 com.meituan.retail.v.android:id/neohybrid_loading_container
+        // 11:56:56.301com.meituan.retail.v.android:id/mil_container
+        // 11:56:56.450 支付成功
+        console.info("等待[去支付]过渡页面结束");
+        textMatches("免密支付|支付成功|支付订单").findOne(10 * 1000);
+      }
     } catch (e) {
       console.error(e);
       console.error(e.stack);
@@ -989,13 +1005,13 @@ function clickByCoor(obj) {
 function clickByCoorNoWait(obj) {
   let loc = obj.bounds();
   log(
-    "通过坐标点击(" +
+    "通过坐标点击[" +
       obj.text() +
-      "):[" +
+      "]:(" +
       loc.centerX() +
       "," +
       loc.centerY() +
-      "]"
+      ")"
   );
   press(loc.centerX(), loc.centerY(), 10);
 }
