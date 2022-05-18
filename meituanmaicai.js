@@ -10,7 +10,7 @@ const MAX_TIMES_PER_ROUND = 600;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
-const COMMON_SLEEP_TIME_IN_MILLS = 150;
+const COMMON_SLEEP_TIME_IN_MILLS = 10;
 // 是否先强行停止APP
 const ACTIVE_STOP_APP = 1;
 // 几秒提醒一次
@@ -101,7 +101,6 @@ function start() {
   launchApp(APP_NAME);
   commonWait();
   if (ACTIVE_STOP_APP == 1) {
-    sleep(3000);
     //跳过开屏广告
     btn_skip = id("btn_skip").findOne(2000);
     if (btn_skip) {
@@ -111,8 +110,9 @@ function start() {
     } else {
       log("没有找到跳过开屏广告按钮");
     }
+    sleep(2000);
   }
-  sleep(600);
+  sleep(1000);
 
   count = 0;
   while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccessed) {
@@ -125,10 +125,11 @@ function start() {
     if (activePeakRecord == 1) {
       checkSaleTime();
     }
+    click_i_know();
     //console.time("判断当前页面耗时");
     let page = textMatches(
-      /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|支付成功|搜索|困鱼|日志)/
-    ).findOne(2000); // 大约80ms
+      /(我知道了|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|去支付|支付成功|搜索|困鱼|日志|.*新版本.*)/
+    ).findOnce(); // 大约80ms
     //console.timeEnd("判断当前页面耗时");
     if (page) {
       if (page.text() != "日志" && page.text() != "困鱼") {
@@ -143,6 +144,9 @@ function start() {
       } else if (page.text() == "搜索") {
         // 首页
         doInHome();
+      } else if (page.text().indexOf("新版本") != -1) {
+        let closeBtn = id("btn_close").findOnce();
+        closeBtn && clickByCoor(closeBtn);
       } else if (page.text() == "请确认地址") {
         confirmAddress();
       } else if (page.text() == "提交订单") {
@@ -168,6 +172,8 @@ function start() {
         click_i_know();
       } else if (page.text() == "困鱼" || page.text() == "日志") {
         waitCheckLog();
+      } else if (page.text() == "去支付") {
+        sleep(SECOND_PER_TIME * 1000);
       } else {
         console.error("ERROR3: 当前在其他页面");
         back();
@@ -177,8 +183,10 @@ function start() {
       }
     } else {
       console.error("ERROR4: 未知页面");
-      musicNotify("09.error");
-      sleep(2000);
+      printPageUIObject();
+      sleep(100);
+      //musicNotify("09.error");
+      //sleep(2000);
     }
     let packageName = currentPackage();
     if (
@@ -236,7 +244,9 @@ function checkSaleTime() {
   let nextTimeStr = hour + ":" + minute;
   if (SALE_BEGIN_TIME.indexOf(nextTimeStr) != -1) {
     // 1分钟 之后开始销售
-    toastLog("还有[" + (60 - second) + "]秒开放下单");
+    if ((60 - second) % SECOND_PER_TIME == 0) {
+      toastLog("还有[" + (60 - second) + "]秒开放下单");
+    }
     if (second < 20) {
       // 避免不适配的手机一直重试
       activeRecord = 1;
@@ -269,7 +279,7 @@ function doInPaySuccess() {
     sleep(SECOND_PER_TIME * 1000);
   }
   // 返回购物车页面
-  let returnBtn = text("完成").findOne(100);
+  let returnBtn = text("完成").findOnce();
   if (returnBtn) {
     log("找到[%s]按钮", returnBtn.text());
     clickByCoor(returnBtn);
@@ -349,7 +359,7 @@ function reload_mall_cart() {
   if (textMatches(".*暂停线上服务.*").exists()) {
     console.info("检测到[暂停线上服务]");
     isFailed = true;
-  } else {
+  } else if (textMatches(".*件失效商品").exists()) {
     // log("重新加载购物车");
     randomSwipe(
       560 + random(0, 50),
@@ -362,6 +372,9 @@ function reload_mall_cart() {
     } else {
       sleep(random(5000, 9000));
     }
+  } else {
+    toastLog("当前购物车内无商品,请添加后重试");
+    isFailed = true;
   }
 }
 
@@ -379,7 +392,7 @@ function doInItemSel() {
     toast("抢菜第" + round + "轮第" + count + "次");
   }
 
-  let submit_btn = textMatches("结算.*|重新加载").findOne(500);
+  let submit_btn = textMatches("结算.*|重新加载").findOne(500); //大概100ms, 中间两个颜色点的过渡效果
   if (!submit_btn) {
     // log("未找到结算按钮，刷新页面");
     reload_mall_cart();
@@ -393,9 +406,17 @@ function doInItemSel() {
         // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
         // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
         if (submit_btn.text().indexOf("(") != -1) {
-          check_all2();
-          log("点击->[" + submit_btn.text() + "]");
-          submit_btn.parent().click(); //结算按钮点击
+          // 05/11 这里除了[前方拥堵.*]之外, 需要等待大概600ms, 否则可能会点击无效
+          if (count % 10 == 1) {
+            check_all2();
+          }
+          let tempI = 0;
+          while (submit_btn && tempI < 10) {
+            tempI++;
+            clickByCoorNoWait(submit_btn);
+            sleep(10);
+            submit_btn = textStartsWith("结算(").findOnce();
+          }
           // commonWait(); // 把一些打印日志的操作转移到点击之后的等待过程
           // 记录商品信息
           // let item = className("android.widget.TextView").depth(30).findOne(100);
@@ -408,25 +429,27 @@ function doInItemSel() {
           // 05/09 这里不能使用[提交订单]来判断, 会影响效率
           let nextBtn = textMatches(
             /(我知道了|返回购物车|前方拥堵.*|立即支付|极速支付|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
-          ).findOne(1500);
+          ).findOne(1000);
           if (nextBtn) {
-            log("进入条件6: ", nextBtn.text());
+            log("进入条件6: ", nextBtn.text()); // 非高峰期550ms
             if (
               nextBtn.text() == "我知道了" ||
               nextBtn.text() == "返回购物车"
             ) {
-              console.time("点击->01[" + nextBtn.text() + "]耗时");
+              //console.time("点击->01[" + nextBtn.text() + "]耗时");
               printReason(nextBtn);
-              nextBtn.parent().click();
-              console.timeEnd("点击->01[" + nextBtn.text() + "]耗时");
-              if (text("提交订单").exists()) {
-                backInSubmit();
-              } else {
-                // 如果在购物车页面的话
-                // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
-                commonWait();
-                sleep(600);
-              }
+              nextBtn.parent().click(); // 5ms
+              //console.timeEnd("点击->01[" + nextBtn.text() + "]耗时");
+              commonWait(); // 100-150ms
+              //sleep(300);
+              // if (text("提交订单").exists()) {
+              //   backInSubmit();
+              // } else {
+              //   // 如果在购物车页面的话
+              //   // 这里必须要等待一定时长(>600), 否则下次结算一定概率会点击无效
+              //   //commonWait();
+              //   //sleep(600);
+              // }
             } else if (nextBtn.text().indexOf("前方拥堵") != -1) {
               // 这个toast有可能出现购物车, 也可能出现在[提交订单]页面
             } else {
@@ -442,9 +465,10 @@ function doInItemSel() {
               // }
             }
           } else {
-            console.error("ERROR7: 未知情况");
-            musicNotify("09.error");
-            commonWait();
+            //console.info("ERROR7: 点击[结算]无效, 可能需要等待");
+            //count--;
+            //musicNotify("09.error");
+            // commonWait();
           }
         } else {
           // 没有选择商品的情况下, 进行全选
@@ -516,6 +540,7 @@ function check_all() {
 
 function check_all2() {
   // 先从底部购物车右上角查看all是多少
+  //console.time("全选商品耗时"); // 已经全选的情况下大约20ms
   try {
     let shopCartBtn = id("img_shopping_cart").findOne(100);
     if (shopCartBtn) {
@@ -527,20 +552,20 @@ function check_all2() {
       // 如果两者不匹配，则没有全选中
       let allChecked = matchText === realText;
       if (!allChecked) {
-        let radio_checkall = className("android.widget.ImageView")
-          .depth(22)
-          .findOne(200);
-        radio_checkall.parent().click();
+        let radio_checkall = text("全选").findOne(200);
+        clickByCoor(radio_checkall);
       }
     }
   } catch (e) {
     console.error(e);
     console.error(e.stack);
   }
+  //console.timeEnd("全选商品耗时");
 }
 
 function backInSubmit() {
-  let checkTxt = text("提交订单").findOne(100);
+  click_i_know();
+  let checkTxt = text("提交订单").findOnce();
   if (checkTxt) {
     // log("通过左上角图标执行[返回]");
     clickByCoor(
@@ -699,21 +724,26 @@ function pay() {
         } else {
           submitBtn.parent().click();
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
+          // 前方拥堵.*| 不在需要判断
+          // 05/18 增加 返回购物车 判断
           let confirmTxt = textMatches(
-            /(前方拥堵.*|确认订单|我知道了|我常买|继续支付|去支付|验证指纹|支付中|免密支付|确认支付|支付成功|支付订单)/
-          ).findOne(5000);
+            /(确认订单|我知道了|返回购物车|我常买|继续支付|去支付|验证指纹|支付中|免密支付|确认支付|支付成功|支付订单)/
+          ).findOnce();
           // 成功情况1: [支付中] - [支付订单] - [免密支付]
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
           if (confirmTxt) {
             // console.log(
             //   "点击[立即支付|极速支付]后,进入条件3:" + confirmTxt.text()
             // );
-            if (confirmTxt.text() == "我知道了") {
+            if (
+              confirmTxt.text() == "我知道了" ||
+              confirmTxt.text() == "返回购物车"
+            ) {
               printReason(confirmTxt);
               tempFailed = true;
               let infoTxt = textMatches(
                 ".*(不符合活动规则|重新选择送达时段)"
-              ).findOne(50);
+              ).findOnce();
               // 0503 出现[我知道了], 表示这次就失败了, 需要返回购物车重试
               sleep(500);
               clickByCoor(confirmTxt);
@@ -721,14 +751,18 @@ function pay() {
                 log("[我知道了]的原因[%s]", infoTxt.text());
                 // 本次购买不符合活动规则, 这种情况下, 不会自动返回, 额外多等待一会
                 log("第[%s]次,执行[返回]操作", countP);
-                back();
+                while (text("提交订单").exists()) {
+                  backInSubmit();
+                }
               } else {
+                // 下单失败
                 // |导致下单失败.|.*该商品*
                 // 05/06 抱歉, ***商品仅剩1件, 已为您调整为库存量~ (这种情况会自动返回)
+                click_i_know();
                 console.error("其他原因导致的[我知道了]");
               }
-              commonWait();
-              sleep(300);
+              //commonWait();
+              //sleep(300);
             } else if (confirmTxt.text().indexOf("前方拥堵") != -1) {
               // toast提示 盒马 当前购物高峰期人数较多, 请稍后重试
               // toast提示 美团 [前方拥堵，请稍后再试] , 会自动消失可以不用管
@@ -739,20 +773,25 @@ function pay() {
               // 说明请求服务器成功, 重置提交次数
               countP = 0;
               printPageUIObject();
-              clickByCoor(confirmTxt);
+              let tempI = 0;
+              while (text("继续支付").exists() && tempI < 10) {
+                tempI++;
+                console.info("第%s次点击[继续支付]", tempI);
+                clickByCoor(confirmTxt);
+              }
             } else {
               log("进入条件5:", confirmTxt.text());
               // 支付订单|确认订单|我常买 这两个页面,交给后续流程处理
             }
           } else {
             // TODO, 捡漏成功进入[支付成功], 但是这里报错了, 可能是处理时间刚好到了5000ms
-            console.error("ERROR5: 既没有[确认订单], 也没有[我知道了]等按钮");
-            musicNotify("09.error");
+            //console.error("ERROR5: 既没有[确认订单], 也没有[我知道了]等按钮");
+            //musicNotify("09.error");
             //back();
             //commonWait();
           }
         }
-        submitBtn = textMatches(/(立即支付|极速支付)/).findOne(100);
+        submitBtn = textMatches(/(立即支付|极速支付)/).findOnce();
       }
       log("已经往下流转, 本次失败:", tempFailed);
     } catch (e) {
@@ -841,6 +880,7 @@ function stopRecord() {
     if (startRecBtn) {
       log("找到[关闭录屏]按钮: ", startRecBtn.desc());
       if (startRecBtn.desc().indexOf("录屏工具") != -1) {
+        // Note9
         startRecBtn.click();
         back();
         commonWait();
@@ -851,19 +891,19 @@ function stopRecord() {
         click(916, 306);
         sleep(1500);
         press(916, 306, 300);
-        sleep(2000);
+        sleep(5000);
         back();
         commonWait();
       }
       isRecording = false;
       //printPageUIObject();
     } else {
-      log("没有找到[关闭录屏]按钮");
+      log("没有找到[关闭录屏]按钮, 非Note9,S8需要自己适配");
       back();
       commonWait();
       // printPageUIObject();
     }
-    sleep(3000);
+    sleep(1000);
   } else {
     log("不在录屏中");
   }
@@ -925,18 +965,28 @@ function commonWait() {
 }
 
 function click_i_know(iKnow) {
+  let isIKnowExist = false;
   let retry_button = iKnow;
   if (retry_button == null) {
     // 只要页面有 我知道了等按钮, 都盲点
-    retry_button = textMatches(/(我知道了|返回购物车)/).findOne(100);
+    retry_button = textMatches(/(我知道了|返回购物车)/).findOnce();
   }
   if (retry_button) {
-    log("通用方法:找到[" + retry_button.text() + "]按钮,直接点击");
+    isIKnowExist = true;
+    //log("通用方法:找到[" + retry_button.text() + "]按钮,直接点击");
     clickByCoor(retry_button);
+  } else {
+    isIKnowExist = false;
   }
+  return isIKnowExist;
 }
 
 function clickByCoor(obj) {
+  clickByCoorNoWait(obj);
+  commonWait();
+}
+
+function clickByCoorNoWait(obj) {
   let loc = obj.bounds();
   log(
     "通过坐标点击(" +
@@ -947,9 +997,13 @@ function clickByCoor(obj) {
       loc.centerY() +
       "]"
   );
-  click(loc.centerX(), loc.centerY());
-  commonWait();
+  press(loc.centerX(), loc.centerY(), 10);
 }
+
+// function pressByObj(obj) {
+//   let loc = obj.bounds();
+//   press(loc.centerX(), loc.centerY(), 5);
+// }
 
 function kill_app(packageName) {
   var name = getPackageName(packageName);

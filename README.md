@@ -14,7 +14,7 @@
 
 ## 修改说明
 * 在`zgl018`脚本(自动下单)的基础上, 主要增加了捡漏的功能, 其他细节进行了优化
-* 仅支持Android, 适配`美团买菜 5.33.1`, 需要在`AutoJS.fakeIdlefish 4.1.22.0322.alpha`下运行, 下载地址: [https://github.com/TonyJiangWJ/Auto.js]
+* 仅支持Android, 适配`美团买菜 5.34.1`, 需要在`AutoJS.fakeIdlefish 4.1.22.0322.alpha`下运行, 下载地址: [https://github.com/TonyJiangWJ/Auto.js]
 * 适配机型: 三星Note9(Android 10), 三星S8(Android 9) ~~, 三星Note20U(Android 12)~~
 
 调试及使用教程可参考: https://github.com/qulingyuan/robVeg
@@ -31,6 +31,12 @@
 * ~~选择时间,点击`立即支付`之后, 拥堵情况下会导致程序卡住~~
 
 # 更新记录
+### 22/05/18
+* 昨天美团又复活了, 继续
+* 采用更激进的频率点击按钮
+* 支持购物车无商品情况的判断
+* 适配5.34.1版本的[全选]按钮
+
 ### 22/05/07
 * 连续点击900次没成功之后, 返回购物车
 * 兼容高峰期缺货之后的[继续支付]的场景
