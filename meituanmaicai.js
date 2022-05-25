@@ -16,7 +16,7 @@ const ACTIVE_STOP_APP = 1;
 // 几秒提醒一次
 const SECOND_PER_TIME = 5;
 // 开卖时间
-const SALE_BEGIN_TIME = ["06:00"];
+const SALE_BEGIN_TIME_ARR = ["06:00"];
 
 // 第几轮
 var round = 0;
@@ -38,6 +38,9 @@ var autoAddItems = new Array();
 
 // 任务中断次数
 var interruptCount = 0;
+
+// 未知页面连续次数
+var unKnownPageCount =0;
 
 // 是否启动录屏
 var activeRecord = 0;
@@ -140,10 +143,11 @@ function start() {
     click_i_know();
     //console.time("判断当前页面耗时");
     let page = textMatches(
-      /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|全部订单|请确认地址|去支付|支付成功|搜索|困鱼|日志|.*新版本.*)/
+      /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|到货提醒我|全部订单|请确认地址|去支付|支付成功|搜索|困鱼|日志|.*新版本.*)/
     ).findOnce(); // 大约80ms
     //console.timeEnd("判断当前页面耗时");
     if (page) {
+      unKnownPageCount = 0;
       if (page.text() != "日志" && page.text() != "困鱼") {
         // 不能打印, 否则日志会刷屏
         log(
@@ -164,12 +168,18 @@ function start() {
       } else if (page.text() == "提交订单") {
         // 提交订单
         doInSubmit();
+        // 调试的情况可以进行替换, 不会提交订单
+        //backInSubmit();
       } else if (page.text() == "支付订单" || page.text() == "验证指纹") {
         // 支付订单
         doInPay();
       } else if (page.text() == "订单详情" || page.text() == "支付成功") {
         // 支付详情
         doInPaySuccess();
+      } else if (page.text() == "到货提醒我" ) {
+        // 支付详情
+        back();
+        commonWait();
       } else if (
         page.text() == "加入购物车" ||
         page.text() == "全部订单" ||
@@ -194,11 +204,16 @@ function start() {
         commonWait();
       }
     } else {
+      unKnownPageCount++;
       console.error("ERROR4: 未知页面");
       printPageUIObject();
       sleep(500);
       //musicNotify("09.error");
       //sleep(2000);
+      if(unKnownPageCount%20==0){
+        back();
+        commonWait();
+      }
     }
     let packageName = currentPackage();
     if (
@@ -254,7 +269,7 @@ function checkSaleTime() {
   }
   var second = nextTime.getSeconds();
   let nextTimeStr = hour + ":" + minute;
-  if (SALE_BEGIN_TIME.indexOf(nextTimeStr) != -1) {
+  if (SALE_BEGIN_TIME_ARR.indexOf(nextTimeStr) != -1) {
     // 1分钟 之后开始销售
     if ((60 - second) % SECOND_PER_TIME == 0) {
       toastLog("还有[" + (60 - second) + "]秒开放下单");
@@ -266,6 +281,45 @@ function checkSaleTime() {
       activeRecord = 0;
     }
   }
+}
+
+// 判断当前是否高峰期
+// 开售前1分钟 - 开售后5分钟
+// checkTime 判断时间, 08:00
+// beforeOffset 往前判断阈值, 单位: 分钟, 比如: 1
+// afterOffset 往后判断阈值, 单位: 分钟, 比如: 5
+// 最终判断 >= 07:59 && <= 08:05:00
+function isPeakTimeStr(checkTime, beforeOffset, afterOffset) {
+  // log(
+  //   "判断时间: %s, 往前%s分钟, 往后%s分钟",
+  //   checkTime,
+  //   beforeOffset,
+  //   afterOffset
+  // );
+  let now = new Date();
+  let checkDate = new Date(now);
+  var beginIndex = checkTime.lastIndexOf(":");
+  var beginHour = checkTime.substring(0, beginIndex);
+  var beginMinue = checkTime.substring(beginIndex + 1, checkTime.length);
+  checkDate.setHours(beginHour, beginMinue, 0, 0);
+  return (
+    now.getTime() >= checkDate.getTime() - beforeOffset * 60 * 1000 &&
+    now.getTime() <= checkDate.getTime() + afterOffset * 60 * 1000
+  );
+}
+
+function isPeakTime() {
+  let result = false;
+  SALE_BEGIN_TIME_ARR.forEach((o, i) => {
+    if (isPeakTimeStr(o, 1, 5)) {
+      result = true;
+      return;
+    }
+  });
+  if (result) {
+    log("当前时间为高峰期, 跳过部分操作");
+  }
+  return result;
 }
 
 function waitCheckLog() {
@@ -382,7 +436,7 @@ function itemRecomSel() {
         sleep(300);
       }
       addAllItemsToCart();
-    } while (i < 50 && !textMatches("美团自营|已经到底啦").exists());
+    } while (i < 40 && !textMatches("美团自营|已经到底啦").exists());
   } catch (e) {
     console.error(e);
     console.error(e.stack);
@@ -425,7 +479,7 @@ function listAllFilterItems() {
   let con1 = text("买过的都在这里找").findOnce();
   let items = new Array();
   if (con1) {
-    log("买过的都在这里找.depth()=", con1.depth());
+    //log("买过的都在这里找.depth()=", con1.depth());
     if (isNote20U()) {
       items = con1
         .parent()
@@ -583,9 +637,14 @@ function doInItemSel() {
   }
 
   // 22/05/23, 每轮总共执行3次
-  if (count % 200 == 5) {
-    itemRecomSel();
+  if (!isPeakTime()) {
+    if (count % 300 == 10) {
+      itemRecomSel();
+    } else {
+      addAllItemsToCart();
+    }
   }
+
   let submit_btn = textMatches("结算.*|重新加载").findOne(500); //大概100ms, 中间两个颜色点的过渡效果
   if (!submit_btn) {
     // log("未找到结算按钮，刷新页面");
@@ -789,14 +848,25 @@ function backInSubmit() {
   let checkTxt = text("提交订单").findOnce();
   if (checkTxt) {
     // log("通过左上角图标执行[返回]");
-    if (isNote20U) {
-      clickByCoor(
-        checkTxt.parent().find(className("android.view.ViewGroup")).get(0)
-      );
+    //if (isNote20U()) {
+    let returnBtn = checkTxt
+      .parent()
+      .find(
+        className("android.view.ViewGroup").clickable(true).indexInParent(1)
+      )
+      .get(0);
+    if (returnBtn) {
+      //if (count % 2 == 0) {
+      log("通过.click()方法返回购物车");
+      returnBtn.click();
+      commonWait();
+      // } else {
+      //   clickByCoor(returnBtn);
+      // }
     } else {
-      clickByCoor(
-        checkTxt.parent().find(className("android.widget.ImageView")).get(0)
-      );
+      console.warn("没有找到左上角的返回按钮");
+      back();
+      commonWait();
     }
   }
 }
@@ -1245,13 +1315,8 @@ function clickByCoor(obj) {
 function clickByCoorNoWait(obj) {
   let loc = obj.bounds();
   log(
-    "通过坐标点击[" +
-      obj.text() +
-      "]:(" +
-      loc.centerX() +
-      "," +
-      loc.centerY() +
-      ")"
+    "通过坐标点击[%s]:(" + loc.centerX() + "," + loc.centerY() + ")",
+    obj.text() != "" ? obj.text() : obj.className() + "(" + obj.depth() + ")"
   );
   press(loc.centerX(), loc.centerY(), 10);
 }
