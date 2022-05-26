@@ -40,7 +40,7 @@ var autoAddItems = new Array();
 var interruptCount = 0;
 
 // 未知页面连续次数
-var unKnownPageCount =0;
+var unKnownPageCount = 0;
 
 // 是否启动录屏
 var activeRecord = 0;
@@ -144,7 +144,7 @@ function start() {
     //console.time("判断当前页面耗时");
     let page = textMatches(
       /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|到货提醒我|全部订单|请确认地址|去支付|支付成功|搜索|困鱼|日志|.*新版本.*)/
-    ).findOnce(); // 大约80ms
+    ).findOne(200); // 大约80ms
     //console.timeEnd("判断当前页面耗时");
     if (page) {
       unKnownPageCount = 0;
@@ -176,7 +176,7 @@ function start() {
       } else if (page.text() == "订单详情" || page.text() == "支付成功") {
         // 支付详情
         doInPaySuccess();
-      } else if (page.text() == "到货提醒我" ) {
+      } else if (page.text() == "到货提醒我") {
         // 支付详情
         back();
         commonWait();
@@ -210,7 +210,8 @@ function start() {
       sleep(500);
       //musicNotify("09.error");
       //sleep(2000);
-      if(unKnownPageCount%20==0){
+      if (unKnownPageCount % 20 == 0) {
+        console.warn("未知页面连续出现%s次", unKnownPageCount);
         back();
         commonWait();
       }
@@ -231,8 +232,8 @@ function start() {
           interruptCount +
           "次"
       );
-      if (interruptCount == 24) {
-        log("每2分钟重新启动一次[" + APP_NAME + "]");
+      if (interruptCount == 50) {
+        log("重新切换应用[" + APP_NAME + "]");
         unlock();
         home();
         commonWait();
@@ -290,12 +291,6 @@ function checkSaleTime() {
 // afterOffset 往后判断阈值, 单位: 分钟, 比如: 5
 // 最终判断 >= 07:59 && <= 08:05:00
 function isPeakTimeStr(checkTime, beforeOffset, afterOffset) {
-  // log(
-  //   "判断时间: %s, 往前%s分钟, 往后%s分钟",
-  //   checkTime,
-  //   beforeOffset,
-  //   afterOffset
-  // );
   let now = new Date();
   let checkDate = new Date(now);
   var beginIndex = checkTime.lastIndexOf(":");
@@ -316,14 +311,10 @@ function isPeakTime() {
       return;
     }
   });
-  if (result) {
-    log("当前时间为高峰期, 跳过部分操作");
-  }
   return result;
 }
 
 function waitCheckLog() {
-  //log("正在查看日志")
   sleep(3000);
 }
 
@@ -364,6 +355,7 @@ function confirmAddress() {
     if (confirmBtn) {
       confirmBtn.parent().click();
       commonWait();
+      sleep(1000);
     }
   } else {
     musicNotify("05.need_manual");
@@ -414,7 +406,6 @@ function to_mall_cart() {
       text("删除").findOne(2000);
       sleep(500);
     } else {
-      // 刚启动的时候, 有可能出现确认地址框的弹层, 可能会无法识别出购物车按钮
       console.log("未找到购物车按钮");
     }
   }
@@ -448,14 +439,19 @@ function itemRecomSel() {
 }
 
 function addAllItemsToCart() {
-  let activeItems = findActiveFilterItems();
-  for (let ii = 0; ii < activeItems.length; ii++) {
-    let isSuccess = false;
-    let j = 0;
-    do {
-      j++;
-      isSuccess = clickRadioByItem(activeItems[ii]);
-    } while (!isSuccess && j < 5);
+  try {
+    let activeItems = findActiveFilterItems();
+    for (let ii = 0; ii < activeItems.length; ii++) {
+      let isSuccess = false;
+      let j = 0;
+      do {
+        j++;
+        isSuccess = clickRadioByItem(activeItems[ii]);
+      } while (!isSuccess && j < 5);
+    }
+  } catch (e) {
+    console.error(e);
+    console.error(e.stack);
   }
 }
 
@@ -573,8 +569,10 @@ function scrollToTopInCart() {
     recomItemsView.scrollUp();
   }
   recomItemsView.scrollUp();
-  if (i == 50) {
-    console.warn("滚动至购物车顶部达到上限, 可能有问题");
+  if (i == 50 && isPeakTime()) {
+    console.warn(
+      "滚动至购物车顶部达到上限, 可能[您可能想买]未加载成功, 或者其他问题"
+    );
   }
 }
 
@@ -765,50 +763,6 @@ function doInItemSel() {
   count++;
   // log("DEBUG: [结算]执行结束");
 }
-
-// function check_all() {
-//   log("判断购物车是否已经选中商品");
-//   let radio_checkall = className("android.widget.ImageView")
-//     .depth(22)
-//     .findOne(200);
-//   if (radio_checkall) {
-//     // log(radio_checkall.findOne());
-//     // 选中的情况下是 结算(数量),
-//     // 220422 更新, 如果闭店的情况下, 就算全选了商品, 结算后面也不会出现"(数量)""
-//     let is_checked2 = textStartsWith("结算").findOne(200).text() != "结算";
-//     let is_checked = textMatches(/(.*配送费.*)/).findOne(200) != null;
-//     log(
-//       "购物车当前已选择商品, 结算条件:" +
-//         is_checked2 +
-//         ", 配送费条件: " +
-//         is_checked
-//     );
-//     // 自提的情况下, 已选择了商品 结算条件 true, 配送费条件 false
-//     if (!is_checked2 && !is_checked) {
-//       log("全选所有商品");
-//       radio_checkall.parent().click();
-//       commonWait();
-//       sleep(1000);
-//     } else if (count == 1) {
-//       // 已经选择过商品的情况下, 第一次也取消并重新选择
-//       log("重新全选商品-点击全选按钮");
-//       radio_checkall.parent().click();
-//       commonWait();
-//       sleep(1000);
-//       is_checked2 = textStartsWith("结算").findOne(200).text() != "结算";
-//       if (!is_checked2) {
-//         log("重新全选商品-再次点击全选按钮");
-//         radio_checkall.parent().click();
-//         commonWait();
-//         sleep(1000);
-//       }
-//       is_checked2 = textStartsWith("结算").findOne(200).text() != "结算";
-//       log("重新全选商品-购物车当前已选择商品:" + is_checked2);
-//     } else {
-//       log("购物车已经选择好了商品");
-//     }
-//   }
-// }
 
 function check_all2() {
   // 先从底部购物车右上角查看all是多少
@@ -1009,7 +963,7 @@ function pay() {
           toastLog("本轮[立即支付]已执行[" + countP + "]次");
         }
         // 22/05/23 1900次大约2分钟, 返回以后再提交也很快就能进入
-        if (countP % 1500 == 0) {
+        if (countP % 1000 == 0) {
           // 05/10 按照目前的逻辑, 缺货的情况下, 可以点击[继续支付], 所以也不太需要返回购物车了
           click_i_know();
           tempFailed = true;
@@ -1320,11 +1274,6 @@ function clickByCoorNoWait(obj) {
   );
   press(loc.centerX(), loc.centerY(), 10);
 }
-
-// function pressByObj(obj) {
-//   let loc = obj.bounds();
-//   press(loc.centerX(), loc.centerY(), 5);
-// }
 
 function kill_app(packageName) {
   var name = getPackageName(packageName);
