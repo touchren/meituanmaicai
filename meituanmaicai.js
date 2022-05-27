@@ -176,15 +176,11 @@ function start() {
       } else if (page.text() == "订单详情" || page.text() == "支付成功") {
         // 支付详情
         doInPaySuccess();
-      } else if (page.text() == "到货提醒我") {
+      } else if (page.text() == "加入购物车" || page.text() == "到货提醒我") {
         // 支付详情
         back();
         commonWait();
-      } else if (
-        page.text() == "加入购物车" ||
-        page.text() == "全部订单" ||
-        page.text() == "搜索"
-      ) {
+      } else if (page.text() == "全部订单" || page.text() == "搜索") {
         // 商品详情页, 跳转至购物车
         // 首页/分类/我的页面
         to_mall_cart();
@@ -407,6 +403,8 @@ function to_mall_cart() {
       sleep(500);
     } else {
       console.log("未找到购物车按钮");
+      back();
+      commonWait();
     }
   }
 }
@@ -427,7 +425,7 @@ function itemRecomSel() {
         sleep(300);
       }
       addAllItemsToCart();
-    } while (i < 40 && !textMatches("美团自营|已经到底啦").exists());
+    } while (i < 45 && !textMatches("美团自营|已经到底啦").exists());
   } catch (e) {
     console.error(e);
     console.error(e.stack);
@@ -564,12 +562,13 @@ function clickRadioByItem(item) {
 function scrollToTopInCart() {
   let recomItemsView = className("ScrollView").findOnce();
   let i = 0;
-  while (!text("您可能想买").exists() && i < 50) {
+  let maxTimes = isPeakTime() ? 2 : 45;
+  while (!text("您可能想买").exists() && i < maxTimes) {
     i++;
     recomItemsView.scrollUp();
   }
   recomItemsView.scrollUp();
-  if (i == 50 && isPeakTime()) {
+  if (i == 45) {
     console.warn(
       "滚动至购物车顶部达到上限, 可能[您可能想买]未加载成功, 或者其他问题"
     );
@@ -974,14 +973,15 @@ function pay() {
           while (text("提交订单").exists()) {
             backInSubmit();
           }
+          sleep(500);
         } else {
           // 05/18 两种点击方式都进行尝试
-          if (countP % 2 != 2) {
-            submitBtn.parent().click();
-          } else {
-            // 这种方式屏幕会置灰
-            clickByCoorNoWait(submitBtn);
-          }
+          // if (countP % 2 != 2) {
+          submitBtn.parent().click();
+          // } else {
+          //   // 这种方式屏幕会置灰
+          //   clickByCoorNoWait(submitBtn);
+          // }
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           // 前方拥堵.*| 不在需要判断
           // 05/18 增加 返回购物车 判断
