@@ -1,12 +1,22 @@
 // 常量定义
 const APP_NAME = "美团买菜";
 const PACKAGE_NAME = "com.meituan.retail.v.android";
-const AUTO_JS_PACKAGE_NAME = "com.taobao.idlefish.x";
+const AUTO_JS_PACKAGE_NAMES = [
+  "com.taobao.idlefish.x", // 困鱼
+  "org.autojs.autoxjs", // Autoxjs
+];
+const OTHER_ALLOW_PACKAGE_NAMES = [
+  "com.samsung.android.app.smartcapture", //录屏程序(Note9)
+  "com.samsung.android.app.cocktailbarservice", // 新消息顶部浮框
+  "com.sec.android.app.launcher", //可能是桌面
+  "com.android.systemui", // 通知栏
+];
+const VERSION = "v220529";
 // 最大尝试轮数
 const MAX_ROUND = 5;
 // 每轮最长重试次数 (捡漏模式平均单次1.42秒)
 // 05/10 10分钟300次
-const MAX_TIMES_PER_ROUND = 600;
+const MAX_TIMES_PER_ROUND = 500;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
@@ -17,15 +27,18 @@ const ACTIVE_STOP_APP = 1;
 const SECOND_PER_TIME = 5;
 // 开卖时间
 const SALE_BEGIN_TIME_ARR = ["06:00"];
+// 对于部分只能通过坐标点击的对象, 按照(1080, 2220)进行适配
+const DEFAULT_DEVICE_WIDTH = 1080;
+const DEFAULT_DEVICE_HEIGHT = 2220;
 
 // 第几轮
 var round = 0;
 // 本轮执行第几次
-var count = 1;
+var count = 0;
 // 选择时间本轮选择第几次 (220501, 目前时间已经会自动选择, 所以这个值已经暂时没有用处了)
 var countT = 1;
 // 立即支付尝试了第几次 (220501, 现在抢菜主要就是一直点这个按钮)
-var countP = 1;
+var countP = 0;
 // 确认已失败
 var isFailed = false;
 // 确实已成功
@@ -66,10 +79,11 @@ engines.all().map((ScriptEngine) => {
     ScriptEngine.forceStop();
   }
 });
-
+log("version:", VERSION);
 auto.waitFor();
 device.wakeUp();
-commonWait();
+sleep(1000);
+
 // 在定时任务执行时间的前一分钟先启动闹钟, 给手机亮屏
 closeClock();
 // 解锁手机
@@ -89,7 +103,7 @@ while (round < MAX_ROUND) {
     log(e.stack);
   }
 
-  let totalTime = random(2, 8);
+  let totalTime = random(1, 5);
   for (let i = 0; i < totalTime; i++) {
     toastLog(
       "第" +
@@ -108,7 +122,7 @@ toastLog("程序已结束");
 
 function start() {
   startRecord();
-  count = 1;
+  count = 0;
   isFailed = false;
   isSuccessed = false;
   if (ACTIVE_STOP_APP == 1) {
@@ -126,7 +140,7 @@ function start() {
     } else {
       log("没有找到跳过开屏广告按钮");
     }
-    sleep(2000);
+    sleep(5000);
   }
   sleep(1000);
 
@@ -147,6 +161,7 @@ function start() {
     ).findOne(200); // 大约80ms
     //console.timeEnd("判断当前页面耗时");
     if (page) {
+      count++;
       unKnownPageCount = 0;
       if (page.text() != "日志" && page.text() != "困鱼") {
         // 不能打印, 否则日志会刷屏
@@ -212,14 +227,13 @@ function start() {
         commonWait();
       }
     }
+
     let packageName = currentPackage();
     if (
-      packageName == PACKAGE_NAME ||
-      packageName == AUTO_JS_PACKAGE_NAME ||
-      packageName == "com.android.systemui"
+      packageName != PACKAGE_NAME &&
+      AUTO_JS_PACKAGE_NAMES.indexOf(packageName) == -1 &&
+      OTHER_ALLOW_PACKAGE_NAMES.indexOf(packageName) == -1
     ) {
-      interruptCount = 0;
-    } else {
       interruptCount++;
       log(
         "WANR: 页面已经被切至:" +
@@ -236,8 +250,14 @@ function start() {
         launchApp(APP_NAME);
         commonWait();
       }
-      //sleep(1000);
+    } else {
+      interruptCount = 0;
     }
+  }
+
+  if (!isPeakTime() || isSuccessed) {
+    // 玩游戏撸羊毛
+    game();
   }
 
   toastLog(
@@ -280,29 +300,10 @@ function checkSaleTime() {
   }
 }
 
-// 判断当前是否高峰期
-// 开售前1分钟 - 开售后5分钟
-// checkTime 判断时间, 08:00
-// beforeOffset 往前判断阈值, 单位: 分钟, 比如: 1
-// afterOffset 往后判断阈值, 单位: 分钟, 比如: 5
-// 最终判断 >= 07:59 && <= 08:05:00
-function isPeakTimeStr(checkTime, beforeOffset, afterOffset) {
-  let now = new Date();
-  let checkDate = new Date(now);
-  var beginIndex = checkTime.lastIndexOf(":");
-  var beginHour = checkTime.substring(0, beginIndex);
-  var beginMinue = checkTime.substring(beginIndex + 1, checkTime.length);
-  checkDate.setHours(beginHour, beginMinue, 0, 0);
-  return (
-    now.getTime() >= checkDate.getTime() - beforeOffset * 60 * 1000 &&
-    now.getTime() <= checkDate.getTime() + afterOffset * 60 * 1000
-  );
-}
-
 function isPeakTime() {
   let result = false;
   SALE_BEGIN_TIME_ARR.forEach((o, i) => {
-    if (isPeakTimeStr(o, 1, 5)) {
+    if (isPeakTimeStr(o, 1 * 60 * 1000, 6 * 60 * 1000)) {
       result = true;
       return;
     }
@@ -310,8 +311,26 @@ function isPeakTime() {
   return result;
 }
 
-function waitCheckLog() {
-  sleep(3000);
+// 马上开售则等待到开始, 否则跳过
+function sleepToSale() {
+  let result = false;
+  let tempI = 0;
+  do {
+    tempI++;
+    if (tempI % 1000 == 0) {
+      log("等待开售判断第%s次", tempI); // 2s打印一次
+    }
+    SALE_BEGIN_TIME_ARR.forEach((o, i) => {
+      if (isPeakTimeStr(o, 15 * 1000, -10)) {
+        result = true;
+        sleep(1); // 判断500次, 大约1s, 如果不添加这行, 500次, 大约30ms
+        return;
+      } else {
+        result = false;
+      }
+    });
+  } while (result);
+  // log("判断%s次后结束", tempI);
 }
 
 function doInHome() {
@@ -325,7 +344,7 @@ function doInPay() {
 function doInPaySuccess() {
   isSuccessed = true;
   // 等待一定时间
-  let totalTime = 30 / (SECOND_PER_TIME * 2);
+  let totalTime = 10 / (SECOND_PER_TIME * 2);
   for (let i = 0; i < totalTime && text("完成").exists(); i++) {
     toastLog((totalTime - i) * SECOND_PER_TIME * 2 + "秒之后完成");
     musicNotify("03.pay_success");
@@ -359,34 +378,6 @@ function confirmAddress() {
   }
 }
 
-// 关闭闹钟提醒
-function closeClock() {
-  // 三星Note9闹钟关闭按钮
-  let closeClockBtn = id(
-    "com.sec.android.app.clockpackage:id/tabCircle"
-  ).findOne(200);
-  if (closeClockBtn) {
-    console.info("识别到三星闹钟界面, 执行[返回]关闭闹钟");
-    back();
-    commonWait();
-    sleep(500);
-  } else {
-    log("没有识别出闹钟按钮");
-  }
-}
-
-// 解锁屏幕
-function unlock() {
-  try {
-    require("./Unlock.js").exec();
-    commonWait();
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-// ################################################
-
 function to_mall_cart() {
   if (textStartsWith("我常买").exists()) {
     log("当前已经在购物车页面");
@@ -397,14 +388,210 @@ function to_mall_cart() {
       className("android.widget.RelativeLayout").depth(1).findOnce(2);
     if (shopping_cart_btn) {
       clickByCoor(shopping_cart_btn);
-      log("已进入购物车,等待购物车加载完成");
-      commonWait();
+      log("已点击[购物车]按钮,等待购物车加载完成");
       text("删除").findOne(2000);
       sleep(500);
     } else {
       console.log("未找到购物车按钮");
       back();
       commonWait();
+    }
+  }
+}
+
+function game() {
+  console.time("美团撸羊毛耗时");
+  to_mine();
+  to_checkIn();
+  doInCheckIn();
+  to_mine();
+  to_fruit();
+  doInFruit();
+  console.timeEnd("美团撸羊毛耗时");
+}
+
+function to_checkIn() {
+  let btn = text("签到领币").findOne(2000);
+  if (btn) {
+    btn.parent().click();
+  }
+}
+
+function doInCheckIn() {
+  if (textStartsWith("我的买菜币").findOne(2000)) {
+    sleep(2000);
+    if (text("立即签到").exists()) {
+      click("立即签到");
+      sleep(1000);
+    } else {
+      log("已经签到过了");
+    }
+
+    if (text("去分享，再领一次买菜币").exists()) {
+      click("去分享，再领一次买菜币");
+      sleep(1000);
+      click("微信好友");
+      sleep(2000);
+      back();
+      sleep(1000);
+      click("知道了");
+      sleep(1000);
+    } else {
+      log("已经分享过了");
+    }
+
+    while (text("领任务").exists()) {
+      click("领任务");
+      sleep(1000);
+    }
+
+    if (text("去逛逛").exists()) {
+      if (text("2/2").exists()) {
+        log("今日[去逛逛]已经完成了");
+      } else {
+        log("开始[去逛逛]任务");
+        click("去逛逛");
+        sleep(10 * 1000);
+        randomSwipe(
+          getWidth() / 2,
+          random(1500, 1600),
+          getWidth() / 2,
+          random(300, 400)
+        );
+        sleep(10 * 1000);
+        log("结束[去逛逛]任务");
+      }
+    }
+  } else {
+    console.warn("进入[签到领币]页面失败");
+  }
+}
+
+function to_fruit() {
+  let fruitBtn = text("天天果园").findOne(2000);
+  if (fruitBtn) {
+    fruitBtn.parent().click();
+  }
+}
+
+// 屏幕上半部分的坐标一般不用动, 下半部分需要计算Y偏移量
+function doInFruit() {
+  try {
+    if (text("天天果园").findOne(2000)) {
+      sleep(5000);
+      // 0. 疫情通知
+      click("我知道了");
+
+      // 选择第一水果 384,738,501,855 clickable(false).depth(22).className("android.view.View").indexInParent(1);
+      // 选择第二水果 858,738,975,855 clickable(false).depth(22).className("android.view.View").indexInParent(1);
+      // 选择第三水果 621,1248,738,1365 clickable(false).depth(22).className("android.view.View").indexInParent(1);
+      // text("立即种下万能果") 300,1746,780,1809 clickable(false).depth(21).className("android.view.View").indexInParent(1);
+
+      // 1. 选择水果
+      let choiceFruitBtn = text("选择水果").findOne(1000);
+      if (choiceFruitBtn) {
+        log(
+          choiceFruitBtn.bounds(),
+          choiceFruitBtn.bounds().centerX(),
+          choiceFruitBtn.bounds().centerY()
+        );
+        clickScale(798, 796, "选择第二个水果[苹果]");
+        sleep(1000);
+        let btn1 = textMatches("立即种下.+").findOnce();
+        if (btn1) {
+          btn1.parent().click();
+        }
+        btnHappyGet();
+      }
+
+      // 2. [登录礼包] S8(995,465);
+      clickScale(995, 465, "登录礼包");
+      sleep(1000);
+      // 确认领取
+      let btn4 = text("领取今日奖励").findOne(1000);
+      if (btn4) {
+        clickByCoor(btn4); // click("领取今日奖励");
+        sleep(1000);
+      } else {
+        log("今日[登录礼包]已领取"); // 明天记得再来哦
+      }
+      click("明天记得再来哦"); // 关闭登录礼包页面
+      sleep(1000);
+
+      // 3. 点击 [领水滴] S8 (115,1970)
+      toastLog("点击[领水滴]");
+      clickBottomScale(115, 1950, "领水滴");
+      sleep(3000);
+      btnHappyGet();
+
+      if (text("领取").exists()) {
+        click("领取");
+        sleep(2000);
+        btnHappyGet();
+      }
+      if (text("领任务").exists()) {
+        click("领任务");
+        sleep(2000);
+        btnHappyGet();
+        sleep(1000);
+      }
+      if (text("去分享").exists()) {
+        click("去分享");
+        sleep(1000);
+        clickScale(833, 937, "关闭分享口令页面"); // 生成口令的 关闭按钮 Note9(833, 937);
+        sleep(1000);
+        click("领取");
+        sleep(1000);
+        btnHappyGet();
+        sleep(1000);
+      }
+      // 关闭 [领水滴] 弹框
+      click(getWidth() / 2, getHeight() / 2 - 300);
+      sleep(1000);
+
+      // 4. [浇水] S8(928,1916)
+      for (i = 0; i < 5; i++) {
+        toastLog("[浇水]第" + (i + 1) + "次开始");
+        clickBottomScale(928, 1916, "浇水");
+        sleep(3000);
+        btnHappyGet();
+      }
+    } else {
+      log("进入[天天果园]失败了");
+      back();
+      commonWait();
+    }
+  } catch (e) {
+    console.error(e);
+    console.error(e.stack);
+  }
+}
+
+// 开心收下
+function btnHappyGet() {
+  clickBottomScale(540, 1585, "开心收下"); // 按照S8 适配
+  sleep(2000);
+}
+
+function to_mine() {
+  if (text("我的订单").findOnce()) {
+    log("当前已经在[我的]页面");
+  } else {
+    let mineBtn = id("com.meituan.retail.v.android:id/img_mine").findOnce();
+    let tempI = 0;
+    while (!mineBtn && tempI < 5) {
+      tempI++;
+      back();
+      sleep(2000);
+      mineBtn = id("com.meituan.retail.v.android:id/img_mine").findOnce();
+    }
+    if (mineBtn) {
+      clickByCoor(mineBtn);
+      text("我的订单").findOne(2000);
+      sleep(1000);
+    } else {
+      isFailed = true;
+      console.error("无法找到进入[我的]的按钮");
     }
   }
 }
@@ -562,7 +749,7 @@ function clickRadioByItem(item) {
 function scrollToTopInCart() {
   let recomItemsView = className("ScrollView").findOnce();
   let i = 0;
-  let maxTimes = isPeakTime() ? 2 : 45;
+  let maxTimes = isPeakTime() ? 10 : 45;
   while (!text("您可能想买").exists() && i < maxTimes) {
     i++;
     recomItemsView.scrollUp();
@@ -617,7 +804,7 @@ function reload_mall_cart() {
 }
 
 function doInItemSel() {
-  countP = 1;
+  countP = 0;
   countT = 1;
   // 220417 , 目前单次约2.5秒, 2小时约2880次
   if (count >= MAX_TIMES_PER_ROUND) {
@@ -669,8 +856,11 @@ function doInItemSel() {
           // 先click(), 后press, 同上,  (两轮里面会有一轮不出现 [我知道了]) 20:46.346 - 22:01.823 , 耗时 75.5秒
           // 先press, 后click(), (也是两轮里面会有一轮无效) 25:22.216 - 26:33.752, 耗时71.5秒
 
+          // // 马上开售则等待到开始, 否则跳过
+          sleepToSale();
           // 22/05/19 Note9 大部分情况下, 点击3次就能进入 我知道了, 其他情况, 点击10次依然不行, 最大次数调整到5次
-          while (submit_btn && !text("我知道了").exists() && tempI < 5) {
+          // 22/05/29 调整到10次之后, 效果反而更差, 所以推测连续点击反而会一直disable, 调整为3次
+          while (submit_btn && tempI < 5) {
             // sleep(10)的情况下, 整个循环平均单次40ms
             tempI++;
             //if (tempI % 2 != 2) {
@@ -681,8 +871,24 @@ function doInItemSel() {
             //     btn2.click(); // 0518, 进入购物两次里面就有会有一次一直点击失效, 即使持续20次, 3秒多的情况下(页面应该已经加载完成了)
             //   }
             // }
-            sleep(tempI * 50);
-            submit_btn = textStartsWith("结算(").findOnce();
+            let random1 = tempI % 2 == 1 ? 0 : random(1000, 1500);
+            let sleepTime = tempI * 50 + random1;
+
+            let isNext = textMatches(
+              /(我知道了|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
+            ).findOne(sleepTime);
+            log(
+              "[%s]第%s次, 等待%s ms, 是否生效:%s",
+              submit_btn.text(),
+              tempI,
+              sleepTime,
+              isNext != null
+            );
+            if (isNext) {
+              submit_btn = null;
+            } else {
+              submit_btn = textStartsWith("结算(").findOnce();
+            }
           }
           // commonWait(); // 把一些打印日志的操作转移到点击之后的等待过程
           // 记录商品信息
@@ -759,7 +965,6 @@ function doInItemSel() {
     }
   }
 
-  count++;
   // log("DEBUG: [结算]执行结束");
 }
 
@@ -947,7 +1152,7 @@ function printReason(iKnow) {
 }
 
 function pay() {
-  log("DEBUG: [立即支付|极速支付]-" + countP + "开始");
+  log("DEBUG: [立即支付|极速支付]-" + (countP + 1) + "开始");
   let submitBtn = textMatches(/(立即支付|极速支付)/).findOne(300);
   // 虽然名字叫做 [立即支付], 其实还是只是[提交订单]的效果
   if (submitBtn) {
@@ -957,13 +1162,16 @@ function pay() {
       // 22/05/02 10次662毫秒,一分钟返回一次
       let tempFailed = false;
       while (submitBtn && !tempFailed) {
+        countP++;
         if (countP % 300 == 0) {
           musicNotify("01.submit");
           toastLog("本轮[立即支付]已执行[" + countP + "]次");
         }
         // 22/05/23 1900次大约2分钟, 返回以后再提交也很快就能进入
-        if (countP % 1000 == 0) {
+        // 22/05/28 1000次大约 64.2s
+        if (countP % 700 == 0) {
           // 05/10 按照目前的逻辑, 缺货的情况下, 可以点击[继续支付], 所以也不太需要返回购物车了
+          // 05/29 缺货的情况下, 又不能[继续支付]了, 需要返回购物车
           click_i_know();
           tempFailed = true;
           toastLog(
@@ -996,8 +1204,8 @@ function pay() {
             //   "点击[立即支付|极速支付]后,进入条件3:" + confirmTxt.text()
             // );
             if (confirmTxt.text() == "我知道了") {
-              printReason(confirmTxt);
               tempFailed = true;
+              // 抱歉，本次购买不符合活动规则
               let infoTxt = textMatches(
                 ".*(不符合活动规则|重新选择送达时段)"
               ).findOnce();
@@ -1012,6 +1220,7 @@ function pay() {
                   backInSubmit();
                 }
               } else {
+                printReason(confirmTxt);
                 // 下单失败
                 // |导致下单失败.|.*该商品*
                 // 05/06 抱歉, ***商品仅剩1件, 已为您调整为库存量~ (这种情况会自动返回)
@@ -1032,7 +1241,7 @@ function pay() {
               if (text("继续支付").exists()) {
                 console.info("有商品缺货了");
                 // 说明请求服务器成功, 重置提交次数
-                countP = 1;
+                countP = 0;
                 printPageUIObject();
                 let tempI = 0;
                 while (text("继续支付").exists() && tempI < 10) {
@@ -1058,7 +1267,7 @@ function pay() {
             //commonWait();
           }
         }
-        countP++;
+
         submitBtn = textMatches(/(立即支付|极速支付)/).findOnce();
       }
       log("已经往下流转, 本次结果是否成功:", !tempFailed);
@@ -1087,153 +1296,32 @@ function pay() {
 function confirm_to_pay() {
   log("选择时间计数清零");
   countT = 1;
-  countP = 1;
+  countP = 0;
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
   let payBtn = textMatches("(免密支付|确认支付)").findOne(2000);
   if (payBtn) {
     log("订单已提交成功, 进入支付环节");
     // 15分钟内支付即可, 为了防止误操作, 30秒之后点击付款
-    let totalTime = 30 / SECOND_PER_TIME;
+    let totalTime = 20 / (2 * SECOND_PER_TIME);
     for (let i = 0; i < totalTime; i++) {
       toastLog(
-        (totalTime - i) * SECOND_PER_TIME + "秒之后点击[" + payBtn.text() + "]"
+        (totalTime - i) * SECOND_PER_TIME * 2 +
+          "秒之后点击[" +
+          payBtn.text() +
+          "]"
       );
       musicNotify("02.pay");
-      sleep(SECOND_PER_TIME * 1000);
+      sleep(SECOND_PER_TIME * 2 * 1000);
     }
     clickByCoor(payBtn);
     sleep(5000);
-    isSuccessed = true;
   } else {
     log("下单失败, 马上重试");
     sleep(1500);
     back();
   }
   log("DEBUG: [免密支付]结束");
-}
-
-// 开始录屏
-function startRecord() {
-  if (!isRecording && activeRecord == 1) {
-    swipe(700, 0, 750, 1300, 200);
-    commonWait();
-
-    // 录屏工具,关闭。,按钮
-    // 每个手机不一样, 需要进行适配
-    // Note20U [898, 269, 221, 121] [录屏工具,已关闭.,按钮]
-    let startRecBtn = descMatches("(录屏工具|录制屏幕).*关闭.*").findOne(1000);
-    if (startRecBtn) {
-      log("找到[开启录屏]按钮: ", startRecBtn.desc());
-      startRecBtn.click();
-      commonWait();
-      isRecording = true;
-      sleep(3000);
-    } else {
-      log("没有找到[开启录屏]按钮");
-      printPageUIObject();
-      back();
-      commonWait();
-    }
-
-    let confirmRecord = text("开始录制").findOne(500);
-    if (confirmRecord) {
-      confirmRecord.click();
-      commonWait();
-      sleep(5000);
-    }
-  } else {
-    // log("已经在录屏中或者不需要录屏");
-  }
-}
-
-// 开始录屏
-function stopRecord() {
-  if (isRecording) {
-    swipe(700, 0, 750, 1300, 200);
-    commonWait();
-    // Note920U 录屏工具,已开启。,按钮
-    // Note9 录屏工具,关闭。,按钮
-    // S8 录制屏幕,开启。,按钮
-    let startRecBtn = descMatches("(录屏工具|录制屏幕).*开启.*").findOne(3000);
-    if (startRecBtn) {
-      log("找到[关闭录屏]按钮: ", startRecBtn.desc());
-      if (startRecBtn.desc().indexOf("录屏工具") != -1) {
-        // Note9
-        startRecBtn.click();
-        back();
-        commonWait();
-      } else {
-        // S8, 点击后无法关闭, 只是提示正在录屏, 969,317
-        back();
-        sleep(1000);
-        click(916, 306);
-        sleep(1500);
-        press(916, 306, 300);
-        sleep(5000);
-        back();
-        commonWait();
-      }
-      isRecording = false;
-      //printPageUIObject();
-    } else {
-      log("没有找到[关闭录屏]按钮, 非Note9,S8需要自己适配");
-      back();
-      commonWait();
-      // printPageUIObject();
-    }
-    sleep(1000);
-  } else {
-    log("不在录屏中");
-  }
-}
-
-function printPageUIObject() {
-  textMatches(".+")
-    .find()
-    .forEach((child, idx) => {
-      if (idx < 50)
-        log("第" + (idx + 1) + "项(" + child.depth() + ")text:" + child.text());
-    });
-  descMatches(".+")
-    .find()
-    .forEach((child, idx) => {
-      if (idx < 50)
-        log("第" + (idx + 1) + "项(" + child.depth() + ")desc:" + child.desc());
-    });
-  idMatches(".+")
-    .find()
-    .forEach((child, idx) => {
-      if (idx < 50)
-        log("第" + (idx + 1) + "项(" + child.depth() + ")id:" + child.id());
-    });
-}
-
-function musicNotify(name) {
-  if (name == null) {
-    name = "success";
-  }
-  let m = "/storage/emulated/0/Download/" + name + ".mp3";
-  console.time("music[" + name + "] 耗时");
-  try {
-    if (!files.exists(m)) {
-      // 如果无法访问, 大概耗时2.5s, 将来准备换成公网地址
-      // http://192.168.6.16/apk/autojs/tts/Download/
-      var res = http.get(
-        "https://raw.fastgit.org/touchren/meituanmaicai/main/tts/Download/" +
-          name +
-          ".mp3"
-      );
-      if (res.statusCode == 200) {
-        files.writeBytes(m, res.body.bytes());
-        log("%s下载完成", m);
-      }
-    }
-    media.playMusic(m);
-  } catch (e) {
-    console.error("播放文件不存在:" + m, e);
-  }
-  console.timeEnd("music[" + name + "] 耗时");
 }
 
 function commonWait() {
@@ -1260,21 +1348,8 @@ function click_i_know(iKnow) {
   return isIKnowExist;
 }
 
-// 点击指定对象的坐标
-function clickByCoor(obj) {
-  clickByCoorNoWait(obj);
-  commonWait();
-}
-
-function clickByCoorNoWait(obj) {
-  let loc = obj.bounds();
-  log(
-    "通过坐标点击[%s]:(" + loc.centerX() + "," + loc.centerY() + ")",
-    obj.text() != "" ? obj.text() : obj.className() + "(" + obj.depth() + ")"
-  );
-  press(loc.centerX(), loc.centerY(), 10);
-}
-
+// ################# 以下为通用方法 ################################################################################################
+// 通用方法1: 结束程序
 function kill_app(packageName) {
   var name = getPackageName(packageName);
   if (!name) {
@@ -1314,7 +1389,8 @@ function kill_app(packageName) {
     }
 
     log(app.getAppName(name) + "应用已被关闭");
-    sleep(500);
+    sleep(2000);
+    log("执行返回9");
     back();
     commonWait();
   } else {
@@ -1332,9 +1408,16 @@ function kill_app(packageName) {
  * @param {终点y} ey
  */
 function randomSwipe(sx, sy, ex, ey) {
+  // 22/05/27 解决问题: [JavaException: java.lang.IllegalArgumentException: Path bounds must not be negative]
+  if (sx == 0 || ex == 0) {
+    console.warn("[device.width]返回结果为0,使用默认值540");
+    sx = 540;
+    ex = 540;
+  }
+  //log(sx, sy, ex, ey);
   //设置随机滑动时长范围
-  var timeMin = 150;
-  var timeMax = 400;
+  var timeMin = 250;
+  var timeMax = 300;
   //设置控制点极限距离
   var leaveHeightLength = 300;
 
@@ -1367,12 +1450,8 @@ function randomSwipe(sx, sy, ex, ey) {
   var time = [0, random(timeMin, timeMax)];
   var track = bezierCreate(sx, sy, x2, y2, x3, y3, ex, ey);
 
-  //log("随机控制点A坐标：" + x2 + "," + y2);
-  //log("随机控制点B坐标：" + x3 + "," + y3);
-  //log("随机滑动时长：" + time[1]);
-  //log("track" + track)
-
   //滑动
+  //log(time.concat(track));
   gestures(time.concat(track));
 }
 /**
@@ -1430,4 +1509,244 @@ function bezierCreate(x1, y1, x2, y2, x3, y3, x4, y4) {
   }
 
   return array;
+}
+
+// 判断当前是否高峰期
+// 开售前1分钟 - 开售后5分钟
+// checkTime 判断时间, 08:00
+// beforeOffset 往前判断阈值, 单位: 毫秒, 比如: 1 * 60 *1000
+// afterOffset 往后判断阈值, 单位: 分钟, 比如: 5 * 60 *1000
+// 最终判断 >= 07:59 && <= 08:05:00
+function isPeakTimeStr(checkTime, beforeOffset, afterOffset) {
+  // log(
+  //   "判断时间: %s, 往前%s分钟, 往后%s分钟",
+  //   checkTime,
+  //   beforeOffset,
+  //   afterOffset
+  // );
+  let now = new Date();
+  let checkDate = new Date(now);
+  var beginIndex = checkTime.lastIndexOf(":");
+  var beginHour = checkTime.substring(0, beginIndex);
+  var beginMinue = checkTime.substring(beginIndex + 1, checkTime.length);
+  checkDate.setHours(beginHour, beginMinue, 0, 0);
+  return (
+    now.getTime() >= checkDate.getTime() - beforeOffset &&
+    now.getTime() <= checkDate.getTime() + afterOffset
+  );
+}
+
+// 开始录屏
+function startRecord() {
+  if (!isRecording && activeRecord == 1) {
+    swipe(700, 0, 750, 1300, 200);
+    commonWait();
+
+    // 录屏工具,关闭。,按钮
+    // 每个手机不一样, 需要进行适配
+    // Note20U [898, 269, 221, 121] [录屏工具,已关闭。,按钮]
+    let startRecBtn = descMatches("录.*关闭.*").findOne(2000);
+    if (startRecBtn) {
+      log("找到[开启录屏]按钮: ", startRecBtn.desc());
+      startRecBtn.click();
+      commonWait();
+      isRecording = true;
+      sleep(3000);
+    } else {
+      log("没有找到[开启录屏]按钮");
+      printPageUIObject();
+      back();
+      commonWait();
+    }
+
+    let confirmRecord = text("开始录制").findOne(500);
+    if (confirmRecord) {
+      confirmRecord.click();
+      commonWait();
+      sleep(5000);
+    }
+  } else {
+    // log("已经在录屏中或者不需要录屏");
+  }
+}
+
+// 开始录屏
+function stopRecord() {
+  if (isRecording) {
+    swipe(700, 0, 750, 1300, 200);
+    commonWait();
+    // Note920U 录屏工具,已开启。,按钮
+    // Note9 录屏工具,关闭。,按钮
+    // S8 录制屏幕,开启。,按钮
+    let startRecBtn = descMatches("(录屏工具|录制屏幕).*开启.*").findOne(3000);
+    if (startRecBtn) {
+      log("找到[关闭录屏]按钮: ", startRecBtn.desc());
+      if (startRecBtn.desc().indexOf("录屏工具") != -1) {
+        // Note9
+        startRecBtn.click();
+        back();
+        commonWait();
+      } else {
+        // S8 录屏过程通知栏会有一条[录制屏幕]常驻通知
+        click("点击此处停止录屏");
+        sleep(5000);
+        back();
+        commonWait();
+      }
+      isRecording = false;
+      //printPageUIObject();
+    } else {
+      log("没有找到[关闭录屏]按钮, 非Note9,S8,Note20u需要自己适配");
+      back();
+      commonWait();
+      // printPageUIObject();
+    }
+    sleep(1000);
+  } else {
+    log("不在录屏中");
+  }
+}
+
+function printPageUIObject() {
+  textMatches(".+")
+    .find()
+    .forEach((child, idx) => {
+      if (idx < 50)
+        log("第" + (idx + 1) + "项(" + child.depth() + ")text:" + child.text());
+    });
+  descMatches(".+")
+    .find()
+    .forEach((child, idx) => {
+      if (idx < 50)
+        log("第" + (idx + 1) + "项(" + child.depth() + ")desc:" + child.desc());
+    });
+  idMatches(".+")
+    .find()
+    .forEach((child, idx) => {
+      if (idx < 50)
+        log("第" + (idx + 1) + "项(" + child.depth() + ")id:" + child.id());
+    });
+}
+
+// 针对Android 12 偶尔会返回0的情况
+function getWidth() {
+  return device.width == 0 ? 1080 : device.width;
+}
+
+// 针对Android 12 偶尔会返回0的情况
+function getHeight() {
+  return device.height == 0 ? 2316 : device.height;
+}
+
+// 点击指定对象的坐标
+function clickByCoor(obj) {
+  clickByCoorNoWait(obj);
+  commonWait();
+}
+
+function clickByCoorNoWait(obj) {
+  let loc = obj.bounds();
+  log(
+    "通过坐标点击[%s]:(" + loc.centerX() + "," + loc.centerY() + ")",
+    obj.text() != "" ? obj.text() : obj.className() + "(" + obj.depth() + ")"
+  );
+  press(loc.centerX(), loc.centerY(), 10);
+}
+
+function musicNotify(name) {
+  if (name == null) {
+    name = "success";
+  }
+  let m = "/storage/emulated/0/Download/" + name + ".mp3";
+  if (name == "05.need_manual") {
+    device.vibrate(500);
+  }
+  console.time("music[" + name + "] 耗时");
+  try {
+    if (!files.exists(m)) {
+      // 如果无法访问, 大概耗时2.5s, 将来准备换成公网地址
+      // http://192.168.6.16/apk/autojs/tts/Download/
+      var res = http.get(
+        "https://raw.fastgit.org/touchren/meituanmaicai/main/tts/Download/" +
+          name +
+          ".mp3"
+      );
+      if (res.statusCode == 200) {
+        files.writeBytes(m, res.body.bytes());
+        log("%s下载完成", m);
+      }
+    }
+    media.playMusic(m);
+  } catch (e) {
+    console.error("播放文件不存在:" + m, e);
+  }
+  console.timeEnd("music[" + name + "] 耗时");
+}
+
+function waitCheckLog() {
+  sleep(3000);
+}
+
+// 关闭闹钟提醒
+function closeClock() {
+  // 三星Note9闹钟关闭按钮
+  let closeClockBtn = id(
+    "com.sec.android.app.clockpackage:id/tabCircle"
+  ).findOne(200);
+  if (closeClockBtn) {
+    console.info("识别到三星闹钟界面, 执行[返回]关闭闹钟");
+    log("执行返回15");
+    back();
+    commonWait();
+    sleep(500);
+  } else {
+    // 可能是弹窗状态, 5分钟后会自动消失
+    log("没有识别出闹钟按钮");
+  }
+}
+
+// 解锁屏幕
+function unlock() {
+  try {
+    require("./Unlock.js").exec();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function scrollUpInCart() {
+  randomSwipe(
+    getWidth() / 2,
+    random(300, 400),
+    getWidth() / 2,
+    random(1500, 1600)
+  );
+}
+
+function scrollDownInCart() {
+  randomSwipe(
+    getWidth() / 2,
+    random(1500, 1600),
+    getWidth() / 2,
+    random(300, 400)
+  );
+}
+
+// 针对人工抓取的坐标, 不同分辨率需要进行坐标等比例缩放
+// 根据横坐标计算缩放比例
+function clickScale(x, y, btnTxt) {
+  let ratio = getWidth() / DEFAULT_DEVICE_WIDTH;
+  let realX = x * ratio;
+  let realY = y * ratio;
+  log("点击[固定]坐标[%s]:(" + realX + "," + realY + ")", btnTxt);
+  click(realX, realY);
+}
+
+// 部分元素是靠底部排版的, 所以对于x是1080,但是y有细微差异的屏幕, 需要计算偏移量
+function clickBottomScale(x, y, btnTxt) {
+  let ratio = getWidth() / DEFAULT_DEVICE_WIDTH;
+  let realX = x * ratio;
+  let realY = y * ratio + getHeight() - DEFAULT_DEVICE_HEIGHT * ratio;
+  log("点击[固定]坐标[%s]:(" + realX + "," + realY + ")", btnTxt);
+  click(realX, realY);
 }
