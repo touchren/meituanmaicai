@@ -11,12 +11,13 @@ const OTHER_ALLOW_PACKAGE_NAMES = [
   "com.sec.android.app.launcher", //可能是桌面
   "com.android.systemui", // 通知栏
 ];
-const VERSION = "v220529";
+const VERSION = "v220530";
+
 // 最大尝试轮数
 const MAX_ROUND = 5;
 // 每轮最长重试次数 (捡漏模式平均单次1.42秒)
 // 05/10 10分钟300次
-const MAX_TIMES_PER_ROUND = 500;
+const MAX_TIMES_PER_ROUND = 300;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
@@ -157,7 +158,7 @@ function start() {
     click_i_know();
     //console.time("判断当前页面耗时");
     let page = textMatches(
-      /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|到货提醒我|全部订单|请确认地址|去支付|支付成功|搜索|困鱼|日志|.*新版本.*)/
+      /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|到货提醒我|全部订单|请确认地址|去支付|请输入支付密码|支付成功|搜索|困鱼|日志|.*新版本.*)/
     ).findOne(200); // 大约80ms
     //console.timeEnd("判断当前页面耗时");
     if (page) {
@@ -175,6 +176,10 @@ function start() {
       } else if (page.text() == "搜索") {
         // 首页
         doInHome();
+      } else if (page.text() == "请输入支付密码") {
+        // 22/05/30 [免密支付] 一段时间后需要再次输入密码
+        musicNotify("05.need_manual");
+        sleep(SECOND_PER_TIME * 1000);
       } else if (page.text().indexOf("新版本") != -1) {
         let closeBtn = id("btn_close").findOnce();
         closeBtn && clickByCoor(closeBtn);
@@ -321,7 +326,7 @@ function sleepToSale() {
       log("等待开售判断第%s次", tempI); // 2s打印一次
     }
     SALE_BEGIN_TIME_ARR.forEach((o, i) => {
-      if (isPeakTimeStr(o, 15 * 1000, -10)) {
+      if (isPeakTimeStr(o, 15 * 1000, -5)) {
         result = true;
         sleep(1); // 判断500次, 大约1s, 如果不添加这行, 500次, 大约30ms
         return;
@@ -550,7 +555,7 @@ function doInFruit() {
       sleep(1000);
 
       // 4. [浇水] S8(928,1916)
-      for (i = 0; i < 5; i++) {
+      for (i = 0; i < 3; i++) {
         toastLog("[浇水]第" + (i + 1) + "次开始");
         clickBottomScale(928, 1916, "浇水");
         sleep(3000);
@@ -765,41 +770,47 @@ function scrollToTopInCart() {
 function reload_mall_cart() {
   // 没有结算按钮的情况下, 才会重载购物车
   // log("重新加载购物车");
-  scrollToTopInCart();
-  randomSwipe(
-    560 + random(0, 50),
-    400 + random(0, 100),
-    500 + random(0, 50),
-    1500 + random(0, 100)
-  );
-  if (ACTIVE_SUBMIT == 1) {
-    sleep(random(100, 200));
-  } else {
-    sleep(SECOND_PER_TIME * 1000);
-  }
-  if (textMatches(".*暂停线上服务.*").exists()) {
-    console.info("检测到[暂停线上服务]");
-    isFailed = true;
-  } else if (textMatches(".*件失效商品").findOne(2000)) {
-    noItemCount = 0;
-  } else {
-    let shopCartBtn =
-      id("img_shopping_cart").findOnce() ||
-      className("android.widget.RelativeLayout").depth(1).findOnce(2);
-    if (shopCartBtn) {
-      if (
-        (isNote20U() && shopCartBtn.childCount() == 0) ||
-        (!isNote20U() && shopCartBtn.parent().childCount() == 1)
-      ) {
-        log("购物车内可能无商品");
-        noItemCount++;
-        if (noItemCount >= 10) {
-          toastLog("当前购物车内无商品,请添加后重试");
-          // 您的购物车还空着呢~快去逛逛吧
-          isFailed = true;
+  if (!textStartsWith("您的购物车还空着呢").exists()) {
+    scrollToTopInCart();
+    randomSwipe(
+      560 + random(0, 50),
+      400 + random(0, 100),
+      500 + random(0, 50),
+      1500 + random(0, 100)
+    );
+    if (ACTIVE_SUBMIT == 1) {
+      sleep(random(100, 200));
+    } else {
+      sleep(SECOND_PER_TIME * 1000);
+    }
+    if (textMatches(".*暂停线上服务.*").exists()) {
+      console.info("检测到[暂停线上服务]");
+      isFailed = true;
+    } else if (textMatches(".*件失效商品").findOne(2000)) {
+      noItemCount = 0;
+    } else {
+      let shopCartBtn =
+        id("img_shopping_cart").findOnce() ||
+        className("android.widget.RelativeLayout").depth(1).findOnce(2);
+      if (shopCartBtn) {
+        if (
+          (isNote20U() && shopCartBtn.childCount() == 0) ||
+          (!isNote20U() && shopCartBtn.parent().childCount() == 1)
+        ) {
+          log("购物车内可能无商品");
+          noItemCount++;
+          if (noItemCount >= 10) {
+            toastLog("当前购物车内无商品,请添加后重试");
+            // 您的购物车还空着呢~快去逛逛吧
+            isFailed = true;
+          }
         }
       }
     }
+  } else {
+    toastLog("当前购物车内无商品,请添加后重试");
+    // 您的购物车还空着呢~快去逛逛吧
+    isFailed = true;
   }
 }
 
@@ -871,17 +882,33 @@ function doInItemSel() {
             //     btn2.click(); // 0518, 进入购物两次里面就有会有一次一直点击失效, 即使持续20次, 3秒多的情况下(页面应该已经加载完成了)
             //   }
             // }
-            let random1 = tempI % 2 == 1 ? 0 : random(1000, 1500);
-            let sleepTime = tempI * 50 + random1;
-
+            let random1 = tempI % 2 == 1 ? 0 : random(500, 1000);
+            let sleepTime = (tempI + 1) * 50 + random1;
+            console.time(
+              "第" +
+                tempI +
+                "次点击[" +
+                submit_btn.text() +
+                "], 最长等待" +
+                sleepTime +
+                "ms耗时"
+            );
             let isNext = textMatches(
               /(我知道了|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
             ).findOne(sleepTime);
+            console.timeEnd(
+              "第" +
+                tempI +
+                "次点击[" +
+                submit_btn.text() +
+                "], 最长等待" +
+                sleepTime +
+                "ms耗时"
+            );
             log(
-              "[%s]第%s次, 等待%s ms, 是否生效:%s",
-              submit_btn.text(),
+              "第%s次点击[%s], 有效:%s",
               tempI,
-              sleepTime,
+              submit_btn.text(),
               isNext != null
             );
             if (isNext) {
@@ -1161,6 +1188,9 @@ function pay() {
     try {
       // 22/05/02 10次662毫秒,一分钟返回一次
       let tempFailed = false;
+      let notAllowSleep = rendom(500, 1000);
+      console.warn("尝试解决[不符合活动规则]问题, 等待[%s]ms", notAllowSleep);
+      sleep(notAllowSleep);
       while (submitBtn && !tempFailed) {
         countP++;
         if (countP % 300 == 0) {
