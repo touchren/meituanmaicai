@@ -51,7 +51,7 @@
 
 const REPO = "/touchren/meituanmaicai";
 const BRANCH = "main";
-const PATH = "meituanmaicai";
+const PATH = "meituanmaicai.js";
 
 const CONTEXT_URLS = [  
   "https://ghproxy.futils.com/https://github.com/touchren/meituanmaicai/blob/main/meituanmaicai.js",
@@ -102,7 +102,7 @@ CONTEXT_URLS.forEach((context_url, i) => {
       // toastLog("脚本获取成功");
       downloadSuccess = true;
       var js = res_script.body.string();
-      engines.execScript(PATH, js);
+      engines.execScript(PATH + "-remote", js);
       return;
     } else {
       toastLog(
