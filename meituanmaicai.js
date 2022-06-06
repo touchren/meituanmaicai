@@ -1,3 +1,5 @@
+const VERSION = "v220601";
+
 // 常量定义
 const APP_NAME = "美团买菜";
 const PACKAGE_NAME = "com.meituan.retail.v.android";
@@ -11,17 +13,16 @@ const OTHER_ALLOW_PACKAGE_NAMES = [
   "com.sec.android.app.launcher", //可能是桌面
   "com.android.systemui", // 通知栏
 ];
-const VERSION = "v220530";
 
 // 最大尝试轮数
-const MAX_ROUND = 5;
+const MAX_ROUND = 1;
 // 每轮最长重试次数 (捡漏模式平均单次1.42秒)
 // 05/10 10分钟300次
-const MAX_TIMES_PER_ROUND = 300;
+const MAX_TIMES_PER_ROUND = 0;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
-const COMMON_SLEEP_TIME_IN_MILLS = 50;
+const COMMON_SLEEP_TIME_IN_MILLS = 200;
 // 是否先强行停止APP
 const ACTIVE_STOP_APP = 1;
 // 几秒提醒一次
@@ -46,7 +47,7 @@ var isFailed = false;
 var isSuccessed = false;
 
 // 过滤商品的正则表示式 查看 config.js
-var itemFilterStr = ".*(测试商品|蛏子).*";
+var itemFilterStr = ".*(测试商品1|测试商品2).*";
 
 var autoAddItems = new Array();
 
@@ -73,6 +74,14 @@ var noItemCount = 0;
 var scrollViewDepth = 0;
 var SCROLL_VIEW_DEPTH_NOTE20U = 2;
 
+console.setGlobalLogConfig({
+  file:
+    "/storage/emulated/0/脚本/logs/console-" +
+    new Date().getMonth() +
+    +new Date().getDate() +
+    ".log",
+});
+
 // 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
   log("engines.myEngine().toString():" + engines.myEngine().toString());
@@ -81,10 +90,9 @@ engines.all().map((ScriptEngine) => {
   }
 });
 log("version:", VERSION);
-auto.waitFor();
 device.wakeUp();
 sleep(1000);
-
+auto.waitFor();
 // 在定时任务执行时间的前一分钟先启动闹钟, 给手机亮屏
 closeClock();
 // 解锁手机
@@ -427,7 +435,12 @@ function doInCheckIn() {
     sleep(2000);
     if (text("立即签到").exists()) {
       click("立即签到");
-      sleep(1000);
+      sleep(2000);
+      click("分享给好友");
+      sleep(3000);
+      back();
+      text("登录微信").exists() && back();
+      sleep(2000);
     } else {
       log("已经签到过了");
     }
@@ -444,6 +457,15 @@ function doInCheckIn() {
     } else {
       log("已经分享过了");
     }
+    let reward3 = text("3天").findOnce();
+    click(reward3.bounds().centerX(), reward3.bounds().centerY() - 95);
+    sleep(2000);
+    click("开心收下");
+
+    let reward7 = text("7天").findOnce();
+    click(reward7.bounds().centerX(), reward7.bounds().centerY() - 95);
+    sleep(2000);
+    click("开心收下");
 
     while (text("领任务").exists()) {
       click("领任务");
@@ -882,7 +904,7 @@ function doInItemSel() {
             //     btn2.click(); // 0518, 进入购物两次里面就有会有一次一直点击失效, 即使持续20次, 3秒多的情况下(页面应该已经加载完成了)
             //   }
             // }
-            let random1 = tempI % 2 == 1 ? 0 : random(500, 1000);
+            let random1 = tempI % 2 == 2 ? 0 : random(2500, 3000);
             let sleepTime = (tempI + 1) * 50 + random1;
             console.time(
               "第" +
@@ -1041,18 +1063,13 @@ function backInSubmit() {
       )
       .get(0);
     if (returnBtn) {
-      //if (count % 2 == 0) {
       log("通过.click()方法返回购物车");
       returnBtn.click();
-      commonWait();
-      // } else {
-      //   clickByCoor(returnBtn);
-      // }
     } else {
       console.warn("没有找到左上角的返回按钮");
       back();
-      commonWait();
     }
+    commonWait();
   }
 }
 
@@ -1188,7 +1205,7 @@ function pay() {
     try {
       // 22/05/02 10次662毫秒,一分钟返回一次
       let tempFailed = false;
-      let notAllowSleep = rendom(500, 1000);
+      let notAllowSleep = random(1500, 2000);
       console.warn("尝试解决[不符合活动规则]问题, 等待[%s]ms", notAllowSleep);
       sleep(notAllowSleep);
       while (submitBtn && !tempFailed) {
@@ -1215,10 +1232,10 @@ function pay() {
         } else {
           // 05/18 两种点击方式都进行尝试
           // if (countP % 2 != 2) {
-          submitBtn.parent().click();
+          //submitBtn.parent().click();
           // } else {
           //   // 这种方式屏幕会置灰
-          //   clickByCoorNoWait(submitBtn);
+          clickByCoorNoWait(submitBtn);
           // }
           //console.time("into_confirm_order-" + countP + "耗时"); //50ms左右
           // 前方拥堵.*| 不在需要判断
@@ -1226,13 +1243,15 @@ function pay() {
           // 05/19 [返回购物车] 与 [继续支付] 的判断会冲突, 不会再命中 [继续支付]
           let confirmTxt = textMatches(
             /(确认订单|我知道了|返回购物车|我常买|继续支付|去支付|验证指纹|支付中|免密支付|确认支付|支付成功|支付订单)/
-          ).findOnce();
+          ).findOne(1000);
           // 成功情况1: [支付中] - [支付订单] - [免密支付]
           //console.timeEnd("into_confirm_order-" + countP + "耗时");
           if (confirmTxt) {
-            // console.log(
-            //   "点击[立即支付|极速支付]后,进入条件3:" + confirmTxt.text()
-            // );
+            console.log(
+              "点击[立即支付|极速支付]后,第%s次后进入条件3:" +
+                confirmTxt.text(),
+              countP
+            );
             if (confirmTxt.text() == "我知道了") {
               tempFailed = true;
               // 抱歉，本次购买不符合活动规则
@@ -1240,12 +1259,12 @@ function pay() {
                 ".*(不符合活动规则|重新选择送达时段)"
               ).findOnce();
               // 0503 出现[我知道了], 表示这次就失败了, 需要返回购物车重试
-              sleep(500);
+              //sleep(500);
               clickByCoor(confirmTxt);
               if (infoTxt) {
                 log("[我知道了]的原因[%s]", infoTxt.text());
                 // 本次购买不符合活动规则, 这种情况下, 不会自动返回, 额外多等待一会
-                log("第[%s]次,执行[返回]操作", countP);
+                log("连续点击第[%s]次,执行[返回]操作", countP);
                 while (text("提交订单").exists()) {
                   backInSubmit();
                 }
@@ -1355,10 +1374,9 @@ function confirm_to_pay() {
 }
 
 function commonWait() {
-  sleep(random(1, 50));
-  if (text("前方拥堵，请稍后再试").findOne(COMMON_SLEEP_TIME_IN_MILLS)) {
-    log("前方拥堵，请稍后再试");
-  }
+  let s = random(COMMON_SLEEP_TIME_IN_MILLS, COMMON_SLEEP_TIME_IN_MILLS * 1.5);
+  log("通用方法, 随机等待%s ms", s);
+  sleep(s);
 }
 
 function click_i_know(iKnow) {
@@ -1446,8 +1464,8 @@ function randomSwipe(sx, sy, ex, ey) {
   }
   //log(sx, sy, ex, ey);
   //设置随机滑动时长范围
-  var timeMin = 250;
-  var timeMax = 300;
+  var timeMin = 220;
+  var timeMax = 235;
   //设置控制点极限距离
   var leaveHeightLength = 300;
 
@@ -1680,7 +1698,7 @@ function clickByCoorNoWait(obj) {
     "通过坐标点击[%s]:(" + loc.centerX() + "," + loc.centerY() + ")",
     obj.text() != "" ? obj.text() : obj.className() + "(" + obj.depth() + ")"
   );
-  press(loc.centerX(), loc.centerY(), 10);
+  press(loc.centerX(), loc.centerY(), 20);
 }
 
 function musicNotify(name) {
