@@ -1,0 +1,34 @@
+{
+  "assets": [
+    "project.json",
+    "meituanmaicai.js",
+    "Unlock.js"
+  ],
+  "build": {
+    "build_id": "90E52AA5-5",
+    "build_number": 5,
+    "build_time": 1653894420895
+  },
+  "useFeatures": [],
+  "icon": "res/splashIcon.png",
+  "launchConfig": {
+    "hideLauncher": false,
+    "hideLogs": false,
+    "displaySplash": false,
+    "serviceDesc": "必须开启辅助功能才能使用本程序",
+    "splashIcon": "res/splashIcon.png",
+    "splashText": "请低调使用",
+    "stableMode": false,
+    "volumeUpcontrol": true
+  },
+  "main": "congqiangmeituan_entry.js",
+  "name": "聪抢美团",
+  "packageName": "com.touchren.congqiangmeituan",
+  "scripts": {},
+  "signingConfig": {
+    "alias": "",
+    "keystore": ""
+  },
+  "versionCode": 1,
+  "versionName": "22.06.01"
+}
