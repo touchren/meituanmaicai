@@ -51,10 +51,9 @@
 
 const REPO = "/touchren/meituanmaicai";
 const BRANCH = "main";
-const PATH = "/meituanmaicai.js";
+const PATH = "meituanmaicai";
 
-const CONTEXT_URLS = [
-  "https://raw.iqiq.io/touchren/meituanmaicai/main/meituanmaicai.js",
+const CONTEXT_URLS = [  
   "https://ghproxy.futils.com/https://github.com/touchren/meituanmaicai/blob/main/meituanmaicai.js",
   "https://cdn.staticaly.com/gh/touchren/meituanmaicai/main/meituanmaicai.js",
   //"https://raw.xn--gzu630h.xn--kpry57d/touchren/meituanmaicai/main/meituanmaicai.js",
@@ -62,6 +61,7 @@ const CONTEXT_URLS = [
   //"https://gcore.jsdelivr.net/gh/touchren/meituanmaicai@main/meituanmaicai.js",
   "https://fastly.jsdelivr.net/gh/touchren/meituanmaicai@main/meituanmaicai.js",
   "https://ghproxy.com/https://raw.githubusercontent.com/touchren/meituanmaicai/main/meituanmaicai.js",
+  "https://raw.iqiq.io/touchren/meituanmaicai/main/meituanmaicai.js",
   //"https://raw.githubusercontent.com/touchren/meituanmaicai/main/meituanmaicai.js",
 ];
 
@@ -84,22 +84,28 @@ let downloadSuccess = false;
 CONTEXT_URLS.forEach((context_url, i) => {
   if (!downloadSuccess) {
     console.time("脚本" + (i + 1) + ": [" + context_url + "]耗时");
-    var res_script = http.get(context_url, {
-      headers: {
-        "Accept-Language": "en-us,en;q=0.5",
-        "User-Agent":
-          "Mozilla/5.0(Macintosh;IntelMacOSX10_7_0)AppleWebKit/535.11(KHTML,likeGecko)Chrome/17.0.963.56Safari/535.11",
-      },
-    });
+    var res_script = {};
+    try {
+      res_script = http.get(context_url, {
+        headers: {
+          "Accept-Language": "en-us,en;q=0.5",
+          "User-Agent":
+            "Mozilla/5.0(Macintosh;IntelMacOSX10_7_0)AppleWebKit/535.11(KHTML,likeGecko)Chrome/17.0.963.56Safari/535.11",
+        },
+      });
+    } catch (e) {
+      log("下载远程脚本异常: ", e);
+      log(e.stack);
+    }
     console.timeEnd("脚本" + (i + 1) + ": [" + context_url + "]耗时");
     if (res_script.statusCode == 200) {
       // toastLog("脚本获取成功");
       downloadSuccess = true;
       var js = res_script.body.string();
-      engines.execScript("meituanmaicai_remote.js", js);
+      engines.execScript(PATH, js);
       return;
     } else {
-      toast(
+      toastLog(
         "脚本获取失败！这可能是您的网络原因造成的，建议您检查网络后再重新运行软件吧\nHTTP状态码:" +
           res_script.statusMessage
       );
