@@ -1,4 +1,4 @@
-const VERSION = "v220601";
+const VERSION = "22.06.10-dev";
 
 // 常量定义
 const APP_NAME = "美团买菜";
@@ -14,6 +14,7 @@ const OTHER_ALLOW_PACKAGE_NAMES = [
   "com.android.systemui", // 通知栏
 ];
 
+var storage = storages.create("touchren_common");
 // 最大尝试轮数
 const MAX_ROUND = 3;
 // 每轮最长重试次数 (捡漏模式平均单次1.42秒)
@@ -47,7 +48,7 @@ var isFailed = false;
 var isSuccessed = false;
 
 // 过滤商品的正则表示式 查看 config.js
-var itemFilterStr = ".*(测试商品1|测试商品2).*";
+var itemFilterStr = storage.get("itemFilterStr", ".*(测试商品1|测试商品2).*");
 
 var autoAddItems = new Array();
 
