@@ -3,7 +3,7 @@ let _config = {
   timeout_findOne: 1000,
   device_height: device.height || 2340,
   device_width: device.width || 1080,
-  password: "1234",
+  //password: "1234", // storages.create("touchren_common").put('password', "1234");
 };
 function Unlocker() {
   const _km = context.getSystemService(context.KEYGUARD_SERVICE);
@@ -80,10 +80,14 @@ function Unlocker() {
     }
     // 首先点亮屏幕
     this.wakeup();
+
+    closeClock();
+
     // 打开滑动层
     this.swipe_layer();
+    let passwd = storages.create("touchren_common").get("password", "1234");
     // 如果有锁屏密码则输入密码
-    if (this.is_passwd() && !this.unlock(_config.password)) {
+    if (this.is_passwd() && !this.unlock(passwd)) {
       // 如果解锁失败
       this.failed();
     }
@@ -168,6 +172,23 @@ function Unlocker() {
       return this.check_unlock();
     }
   };
+}
+
+// 关闭闹钟提醒
+function closeClock() {
+  // 三星Note9闹钟关闭按钮
+  let closeClockBtn = id(
+    "com.sec.android.app.clockpackage:id/tabCircle"
+  ).findOne(200);
+  if (closeClockBtn) {
+    console.info("识别到三星闹钟界面, 执行[返回]关闭闹钟");
+    log("执行返回15");
+    back();
+    sleep(500);
+  } else {
+    // 可能是弹窗状态, 5分钟后会自动消失
+    log("没有识别出闹钟按钮");
+  }
 }
 
 module.exports = {
