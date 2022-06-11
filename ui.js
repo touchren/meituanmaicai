@@ -41,6 +41,8 @@ ui.layout(
       <img id="jiaQun" src="file://res/qun.png" />
       <text text="设置解锁密码" textSize="18sp" gravity="center" />
       <input id="passwd" inputType="textPassword" />
+      <text text="设置抢菜渠道" textSize="18sp" gravity="center" />
+      <input id="appType" />
       <text text="设置自动加购商品" textSize="18sp" gravity="center" />
       <text
         text="多个商品以|分隔, 输入关键字即可, 括号及前后的字符不要删除"
@@ -83,6 +85,8 @@ ui.showQun.click(function () {
   log("passwd: ", passwd);
   let itemFilterStr = storage.get("itemFilterStr", ".*(测试商品1|测试商品2).*");
   log("itemFilterStr: ", itemFilterStr);
+  let appType = storage.get("appType", 0);
+  log("appType: ", appType);
   ui.passwd.setText(passwd);
   ui.itemFilterStr.setText(itemFilterStr);
   ui.main.visibility = 8;
@@ -92,6 +96,7 @@ ui.showQun.click(function () {
 ui.hideQun.click(function () {
   storage.put("password", ui.passwd.text());
   storage.put("itemFilterStr", ui.itemFilterStr.text());
+  storage.put("appType", ui.appType.text());
   ui.qun.visibility = 8;
   ui.main.visibility = 0;
 });

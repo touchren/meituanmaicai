@@ -4,6 +4,8 @@ const VERSION = "22.06.10-dev";
 const APP_NAME = "美团买菜";
 const PACKAGE_NAME = "com.meituan.retail.v.android";
 const AUTO_JS_PACKAGE_NAMES = [
+  "com.meituan.retail.v.android", // 美团买菜
+  "com.tencent.mm", // 微信
   "com.taobao.idlefish.x", // 困鱼
   "org.autojs.autoxjs", // Autoxjs
 ];
@@ -34,6 +36,8 @@ const SALE_BEGIN_TIME_ARR = ["06:00"];
 const DEFAULT_DEVICE_WIDTH = 1080;
 const DEFAULT_DEVICE_HEIGHT = 2220;
 
+// 0: 使用APP, 1: 使用小程序
+var appType = storage.get("itemFilterStr", 0);;
 // 第几轮
 var round = 0;
 // 本轮执行第几次
@@ -95,7 +99,7 @@ device.wakeUp();
 sleep(1000);
 auto.waitFor();
 // 在定时任务执行时间的前一分钟先启动闹钟, 给手机亮屏
-closeClock();
+// closeClock(); // 已加在 unlock 里面
 // 解锁手机
 unlock();
 
@@ -135,12 +139,12 @@ function start() {
   count = 0;
   isFailed = false;
   isSuccessed = false;
-  if (ACTIVE_STOP_APP == 1) {
+  if (ACTIVE_STOP_APP == 1 && appType == 0) {
     kill_app(APP_NAME);
   }
-  launchApp(APP_NAME);
+  startApp();
   commonWait();
-  if (ACTIVE_STOP_APP == 1) {
+  if (ACTIVE_STOP_APP == 1 && appType == 0) {
     //跳过开屏广告
     btn_skip = id("btn_skip").findOne(2000);
     if (btn_skip) {
@@ -150,9 +154,9 @@ function start() {
     } else {
       log("没有找到跳过开屏广告按钮");
     }
-    sleep(5000);
+    sleep(3000);
   }
-  sleep(1000);
+  sleep(2000);
 
   while (count < MAX_TIMES_PER_ROUND && !isFailed && !isSuccessed) {
     // 1. 首页 [搜索] 当前位置只可自提
@@ -283,6 +287,59 @@ function start() {
   stopRecord();
 }
 
+function startApp() {
+  if (appType == 0) {
+    launchApp(APP_NAME);
+  } else {
+    launchMiniApp();
+  }
+}
+
+function launchMiniApp() {
+  log("开始打开[微信]");
+  launchApp("微信");
+  let i = 3;
+  while (!text("通讯录").findOne(2000) && i-- > 0) {
+    log("不在微信首页, 返回");
+    back();
+  }
+  log("微信加载成功");
+  clickBottomScale(135, 2100, "微信");
+  sleep(2000);
+  i = 10;
+  while (
+    !text("最近使用的小程序")
+      .boundsInside(0, 1, getWidth(), getHeight())
+      .findOnce() &&
+    i-- > 0
+  ) {
+    log("往上翻页");
+    scrollUp();
+    sleep(2000);
+  }
+  sleep(2000);
+  log("点击[搜索小程序]");
+  click("搜索小程序");
+  sleep(2000);
+  className("android.widget.EditText")
+    .id("com.tencent.mm:id/cd6")
+    .findOnce()
+    .setText(APP_NAME);
+  sleep(1000);
+  let miniAppBtn = className("android.widget.Button")
+    .textMatches(APP_NAME + ".+")
+    .findOnce();
+  miniAppBtn && miniAppBtn.click();
+
+  let success = text("购物车").findOne(5000);
+  if (success) {
+    log("进入[%s]成功", APP_NAME);
+  } else {
+    error("无法进入[%s]", APP_NAME);
+    exit();
+  }
+}
+
 function checkSaleTime() {
   let nextTime = new Date(new Date().getTime() + 60 * 1000);
   let hour = nextTime.getHours();
@@ -394,7 +451,8 @@ function to_mall_cart() {
     // 22/05/23 适配Note20U进入购物车按钮
     shopping_cart_btn =
       idMatches(/.*(img_shopping_cart|cartredDotTextView).*/).findOne(1000) ||
-      className("android.widget.RelativeLayout").depth(1).findOnce(2);
+      className("android.widget.RelativeLayout").depth(1).findOnce(2) ||
+      text("购物车").findOnce();
     if (shopping_cart_btn) {
       clickByCoor(shopping_cart_btn);
       log("已点击[购物车]按钮,等待购物车加载完成");
@@ -418,7 +476,12 @@ function itemRecomSel() {
     do {
       i++;
       // 一次翻页大概480ms
-      recomItemsView.scrollDown();
+      if (recomItemsView) {
+        recomItemsView.scrollDown();
+      } else {
+        scrollDown();
+      }
+
       while (textMatches(".*飞速加载.*").findOne(200)) {
         log("正在加载推荐商品, 稍后继续", i);
         sleep(300);
@@ -564,9 +627,17 @@ function scrollToTopInCart() {
   let maxTimes = isPeakTime() ? 10 : 45;
   while (!text("您可能想买").exists() && i < maxTimes) {
     i++;
-    recomItemsView.scrollUp();
+    if (recomItemsView) {
+      recomItemsView.scrollUp();
+    } else {
+      scrollUp();
+    }
   }
-  recomItemsView.scrollUp();
+  if (recomItemsView) {
+    recomItemsView.scrollUp();
+  } else {
+    scrollUp();
+  }
   if (i == 45) {
     console.warn(
       "滚动至购物车顶部达到上限, 可能[您可能想买]未加载成功, 或者其他问题"
@@ -578,15 +649,17 @@ function reload_mall_cart() {
   // 没有结算按钮的情况下, 才会重载购物车
   // log("重新加载购物车");
   if (!textStartsWith("您的购物车还空着呢").exists()) {
-    scrollToTopInCart();
+    if (appType == 0) {
+      scrollToTopInCart();
+    }
     randomSwipe(
       560 + random(0, 50),
       400 + random(0, 100),
       500 + random(0, 50),
-      1500 + random(0, 100)
+      900 + random(0, 100)
     );
     if (ACTIVE_SUBMIT == 1) {
-      sleep(random(100, 200));
+      commonWait();
     } else {
       sleep(SECOND_PER_TIME * 1000);
     }
@@ -639,7 +712,7 @@ function doInItemSel() {
   }
 
   // 22/05/23, 每轮总共执行3次
-  if (!isPeakTime()) {
+  if (!isPeakTime() && appType == 0) {
     if (count % 300 == 10) {
       itemRecomSel();
     } else {
@@ -664,7 +737,7 @@ function doInItemSel() {
         if (submit_btn.text().indexOf("(") != -1) {
           // 05/11 这里除了[前方拥堵.*]之外, 需要等待大概600ms, 否则可能会点击无效
           if (count % 10 == 1) {
-            check_all2();
+            check_all();
           }
           let tempI = 0;
           // 总共点10次, 大约1秒
@@ -779,7 +852,10 @@ function doInItemSel() {
           }
         } else {
           // 没有选择商品的情况下, 进行全选
-          check_all2();
+          check_all();
+          if (appType == 1) {
+            reload_mall_cart();
+          }
           // 判断是否是 [站点闭店休息中,暂时无法下单]
           let ClosedTxt = textMatches(
             ".*本站点暂停线上服务.*|.*仅支持自提.*"
@@ -802,27 +878,75 @@ function doInItemSel() {
   // log("DEBUG: [结算]执行结束");
 }
 
+function check_all() {
+  if (appType == 0) {
+    check_all2();
+  } else {
+    check_all_1;
+  }
+}
+
 function check_all2() {
   // 先从底部购物车右上角查看all是多少
   //console.time("全选商品耗时"); // 已经全选的情况下大约20ms
   try {
     let shopCartBtn =
       id("img_shopping_cart").findOne(100) ||
-      className("android.widget.RelativeLayout").depth(1).findOnce(2);
+      className("android.widget.RelativeLayout").depth(1).findOnce(2) ||
+      text("购物车").findOnce(1);
+
     if (
       shopCartBtn &&
       ((isNote20U() && shopCartBtn.childCount() == 1) ||
-        (!isNote20U() && shopCartBtn.parent().childCount() > 1))
+        (!isNote20U() && shopCartBtn.parent().childCount() > 1) ||
+        (appType == 1 && shopCartBtn.parent().parent().childCount() > 1))
     ) {
+      if (appType == 1) {
+        shopCartBtn = shopCartBtn.parent();
+      }
       let allNumber = isNote20U()
         ? shopCartBtn.child(0).text()
         : shopCartBtn.parent().child(1).text();
       // 构造"结算(allNumber)"的字符串用于匹配
       let matchText = "结算(" + allNumber + ")";
+      log("计算后的商品数: ", matchText);
       // 找到结算按钮的text
       let realText = textStartsWith("结算").findOne(200).text();
+      log("实际选中的商品数: ", realText);
       // 如果两者不匹配，则没有全选中
       let allChecked = matchText === realText;
+      if (!allChecked) {
+        let radio_checkall = text("全选").findOne(200);
+        clickByCoor(radio_checkall);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    console.error(e.stack);
+  }
+  //console.timeEnd("全选商品耗时");
+}
+
+function check_all_1() {
+  // 先从底部购物车右上角查看all是多少
+  //console.time("全选商品耗时"); // 已经全选的情况下大约20ms
+  try {
+    let shopCartBtn = text("购物车").findOnce(1);
+
+    if (
+      shopCartBtn &&
+      appType == 1 &&
+      shopCartBtn.parent().parent().childCount() > 1
+    ) {
+      let allNumber = shopCartBtn.parent().parent().child(1).text();
+      // 构造"结算(allNumber)"的字符串用于匹配
+      let matchText = "结算(" + allNumber + ")";
+      log("计算后的商品数: ", matchText);
+      // 找到结算按钮的text
+      //let realText = textStartsWith("结算").findOne(200).text();
+      //log("实际选中的商品数: ", realText);
+      // 如果两者不匹配，则没有全选中
+      let allChecked = !text("¥0").findOnce();
       if (!allChecked) {
         let radio_checkall = text("全选").findOne(200);
         clickByCoor(radio_checkall);
@@ -1547,7 +1671,7 @@ function unlock() {
   }
 }
 
-function scrollUpInCart() {
+function scrollUp() {
   randomSwipe(
     getWidth() / 2,
     random(300, 400),
@@ -1556,7 +1680,7 @@ function scrollUpInCart() {
   );
 }
 
-function scrollDownInCart() {
+function scrollDown() {
   randomSwipe(
     getWidth() / 2,
     random(1500, 1600),
