@@ -46,7 +46,7 @@ var round = 0;
 // 本轮执行第几次
 var count = 0;
 // 选择时间本轮选择第几次 (220501, 目前时间已经会自动选择, 所以这个值已经暂时没有用处了)
-var countT = 1;
+var countT = 0;
 // 立即支付尝试了第几次 (220501, 现在抢菜主要就是一直点这个按钮)
 var countP = 0;
 // 确认已失败
@@ -192,7 +192,7 @@ function start() {
       } else if (page.text() == "搜索") {
         // 首页
         doInHome();
-      } else if (page.text() == "请输入支付密码"||page.text() == "微信支付") {
+      } else if (page.text() == "请输入支付密码" || page.text() == "微信支付") {
         // 22/05/30 [免密支付] 一段时间后需要再次输入密码
         musicNotify("05.need_manual");
         sleep(SECOND_PER_TIME * 1000);
@@ -327,18 +327,26 @@ function launchMiniApp() {
       scrollUp();
       sleep(2000);
     }
-    sleep(2000);
-    log("点击[搜索小程序]");
-    click("搜索小程序");
-    sleep(2000);
-    className("android.widget.EditText")
-      .id("com.tencent.mm:id/cd6")
-      .findOnce()
-      .setText(APP_NAME);
-    sleep(1000);
-    let miniAppBtn = className("android.widget.Button")
-      .textMatches(APP_NAME + ".+")
-      .findOnce();
+    if (
+      (miniAppBtn = className("android.widget.Button")
+        .textMatches(APP_NAME + ".+")
+        .findOnce())
+    ) {
+      log("常用小程序内找到[%s]", APP_NAME);
+    } else {
+      log("点击[搜索小程序]");
+      click("搜索小程序");
+      sleep(2000);
+      className("android.widget.EditText")
+        .id("com.tencent.mm:id/cd6")
+        .findOnce()
+        .setText(APP_NAME);
+      sleep(1000);
+      miniAppBtn = className("android.widget.Button")
+        .textMatches(APP_NAME + ".+")
+        .findOnce();
+    }
+
     miniAppBtn && miniAppBtn.click();
   }
   let success = text("购物车").findOne(5000);
@@ -658,7 +666,7 @@ function scrollToTopInCart() {
 function reload_mall_cart() {
   // 没有结算按钮的情况下, 才会重载购物车
   // log("重新加载购物车");
-  if (!textStartsWith("您的购物车还空着呢").exists()) {
+  if (!textStartsWith("您的购物车还空着").exists()) {
     if (appType == "0") {
       scrollToTopInCart();
     }
@@ -706,7 +714,7 @@ function reload_mall_cart() {
 
 function doInItemSel() {
   countP = 0;
-  countT = 1;
+  countT = 0;
   // 220417 , 目前单次约2.5秒, 2小时约2880次
   if (count >= MAX_TIMES_PER_ROUND) {
     // 大约每半小时休息几分钟
@@ -747,6 +755,7 @@ function doInItemSel() {
 
         // 对于小程序, 结算后面的括号可能是图片, 无法获取, 可以通过 明细 进行判断
         if (submit_btn.text().indexOf("(") != -1 || text("明细").exists()) {
+          commonWait();
           // 05/11 这里除了[前方拥堵.*]之外, 需要等待大概600ms, 否则可能会点击无效
           if (count % 10 == 1) {
             check_all();
@@ -763,7 +772,7 @@ function doInItemSel() {
           sleepToSale();
           // 22/05/19 Note9 大部分情况下, 点击3次就能进入 我知道了, 其他情况, 点击10次依然不行, 最大次数调整到5次
           // 22/05/29 调整到10次之后, 效果反而更差, 所以推测连续点击反而会一直disable, 调整为3次
-          while (submit_btn && tempI < 5) {
+          while (submit_btn && tempI < 3) {
             // sleep(10)的情况下, 整个循环平均单次40ms
             tempI++;
             //if (tempI % 2 != 2) {
@@ -785,9 +794,8 @@ function doInItemSel() {
                 sleepTime +
                 "ms耗时"
             );
-            let isNext = textMatches(
-              /(我知道了|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
-            ).findOne(sleepTime);
+            // 22/06/13 请选择送达时间|尽快送达, 时间段需要选择以后才会出现 |[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2}
+            let isNext = textMatches(/(我知道了|送货上门)/).findOne(sleepTime);
             console.timeEnd(
               "第" +
                 tempI +
@@ -806,7 +814,7 @@ function doInItemSel() {
             if (isNext) {
               submit_btn = null;
             } else {
-              submit_btn = textStartsWith("结算(").findOnce();
+              submit_btn = textStartsWith("结算").findOnce();
             }
           }
           // commonWait(); // 把一些打印日志的操作转移到点击之后的等待过程
@@ -998,8 +1006,9 @@ function backInSubmit() {
 
 function doInSubmit() {
   countT++;
-  let timeTxt = textMatches(/(立即配送.*|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/)
-    .findOne(300);
+  let timeTxt = textMatches(
+    /(立即配送.*|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/
+  ).findOne(300);
   if (timeTxt) {
     log("INFO 已选择时间:" + timeTxt.text());
     pay();
@@ -1010,10 +1019,10 @@ function doInSubmit() {
       backInSubmit();
     } else if (textMatches(/(立即支付|极速支付)/).exists()) {
       let arriveTimeBtn =
-        textMatches(/(选择送达时间|立即配送).*/).findOne(1000);
+        textMatches(/(请选择送达时间|立即配送).*/).findOne(1000);
       if (arriveTimeBtn) {
-        // 220501, 理论上, 现在应该不会进这段逻辑了
-        //选择送达时间
+        // 22/06/13 目前需要自己选择时间段 220501, 理论上, 现在应该不会进这段逻辑了
+        // 请选择送达时间
         arriveTimeBtn.parent().click();
         log("选择时间第" + round + "-" + countT + "次");
         if (countT == 1 || countT % SECOND_PER_TIME == 0) {
@@ -1028,9 +1037,9 @@ function doInSubmit() {
         }
 
         commonWait();
-        sleep(500);
         var selectedTime = null;
-        hourClock_unfilterd = textContains(":00").find();
+        // 22/06/13 默认第一个会是 立即配送
+        hourClock_unfilterd = textMatches(/.*(:00|立即配送).*/).find();
         hourClock = hourClock_unfilterd.filter(
           (item) => item.clickable && item.checkable && enabled
         );
@@ -1128,9 +1137,7 @@ function pay() {
     try {
       // 22/05/02 10次662毫秒,一分钟返回一次
       let tempFailed = false;
-      let notAllowSleep = random(1500, 2000);
-      console.warn("尝试解决[不符合活动规则]问题, 等待[%s]ms", notAllowSleep);
-      sleep(notAllowSleep);
+      commonWait();
       while (submitBtn && !tempFailed) {
         countP++;
         if (countP % 300 == 0) {
@@ -1267,7 +1274,7 @@ function pay() {
 // 05/04 在三星Note9上还是有这个步骤, 没有极速支付, 版本5.33.1, Android 10
 function confirm_to_pay() {
   log("选择时间计数清零");
-  countT = 1;
+  countT = 0;
   countP = 0;
   log("DEBUG: [免密支付]-" + count + "开始");
   click_i_know();
