@@ -3,8 +3,9 @@
 const VERSION = "22.06.10-dev";
 
 var storage = storages.create("touchren_common");
+var myStorage = storages.create("touchren_mtmc");
 ui.layout(
-  <frame>
+  <frame margin="15">
     <vertical id="main" visibility="visible">
       <button
         id="automationPermission"
@@ -38,11 +39,12 @@ ui.layout(
       <text id="ver" line="1" />
     </vertical>
     <vertical id="qun" visibility="gone" bg="#ffffff">
-      <img id="jiaQun" src="file://res/qun.png" />
       <text text="设置解锁密码" textSize="18sp" gravity="center" />
       <input id="passwd" inputType="textPassword" />
       <text text="设置抢菜渠道" textSize="18sp" gravity="center" />
       <input id="appType" />
+      <text text="默认等待时长(ms)" textSize="18sp" gravity="center" />
+      <input id="commonSleepTimeInMills" />
       <text text="设置自动加购商品" textSize="18sp" gravity="center" />
       <text
         text="多个商品以|分隔, 输入关键字即可, 括号及前后的字符不要删除"
@@ -50,7 +52,8 @@ ui.layout(
         gravity="left"
         color="red"
       />
-      <input id="itemFilterStr" />
+      <input id="itemFilterStr" inputType="text" />
+
       <button
         id="hideQun"
         style="Widget.AppCompat.Button.Colored"
@@ -81,22 +84,34 @@ ui.qiangcai.click(function () {
 });
 
 ui.showQun.click(function () {
-  let passwd = storage.get("password", "1234");
+  let passwd = storage.get("passwd", "1234");
   log("passwd: ", passwd);
-  let itemFilterStr = storage.get("itemFilterStr", ".*(测试商品1|测试商品2).*");
-  log("itemFilterStr: ", itemFilterStr);
-  let appType = storage.get("appType", 0);
-  log("appType: ", appType);
   ui.passwd.setText(passwd);
+
+  let commonSleepTimeInMills = myStorage.get("commonSleepTimeInMills", "500");
+  log("commonSleepTimeInMills: ", commonSleepTimeInMills);
+  ui.commonSleepTimeInMills.setText(commonSleepTimeInMills);
+
+  let appType = myStorage.get("appType", "0");
+  log("appType: ", appType);
+  ui.appType.setText(appType);
+
+  let itemFilterStr = myStorage.get(
+    "itemFilterStr",
+    ".*(测试商品1|测试商品2).*"
+  );
+  log("itemFilterStr: ", itemFilterStr);
   ui.itemFilterStr.setText(itemFilterStr);
+
   ui.main.visibility = 8;
   ui.qun.visibility = 0;
 });
 
 ui.hideQun.click(function () {
-  storage.put("password", ui.passwd.text());
-  storage.put("itemFilterStr", ui.itemFilterStr.text());
-  storage.put("appType", ui.appType.text());
+  storage.put("passwd", ui.passwd.text());
+  myStorage.put("itemFilterStr", ui.itemFilterStr.text());
+  myStorage.put("appType", ui.appType.text());
+  myStorage.put("commonSleepTimeInMills", ui.commonSleepTimeInMills.text());
   ui.qun.visibility = 8;
   ui.main.visibility = 0;
 });

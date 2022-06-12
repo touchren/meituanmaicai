@@ -17,6 +17,7 @@ const OTHER_ALLOW_PACKAGE_NAMES = [
 ];
 
 var storage = storages.create("touchren_common");
+var myStorage = storages.create("touchren_mtmc");
 // 最大尝试轮数
 const MAX_ROUND = 3;
 // 每轮最长重试次数 (捡漏模式平均单次1.42秒)
@@ -25,7 +26,9 @@ const MAX_TIMES_PER_ROUND = 300;
 // 是否启用 结算 功能, 0:不启用, 1:启用
 const ACTIVE_SUBMIT = 1;
 // 点击按钮之后的通用等待时间
-const COMMON_SLEEP_TIME_IN_MILLS = 500;
+const COMMON_SLEEP_TIME_IN_MILLS = parseInt(
+  myStorage.get("commonSleepTimeInMills", "500")
+);
 // 是否先强行停止APP
 const ACTIVE_STOP_APP = 1;
 // 几秒提醒一次
@@ -37,7 +40,7 @@ const DEFAULT_DEVICE_WIDTH = 1080;
 const DEFAULT_DEVICE_HEIGHT = 2220;
 
 // 0: 使用APP, 1: 使用小程序
-var appType = storage.get("itemFilterStr", 0);;
+var appType = myStorage.get("appType", "0");
 // 第几轮
 var round = 0;
 // 本轮执行第几次
@@ -52,7 +55,7 @@ var isFailed = false;
 var isSuccessed = false;
 
 // 过滤商品的正则表示式 查看 config.js
-var itemFilterStr = storage.get("itemFilterStr", ".*(测试商品1|测试商品2).*");
+var itemFilterStr = myStorage.get("itemFilterStr", ".*(测试商品1|测试商品2).*");
 
 var autoAddItems = new Array();
 
@@ -139,12 +142,12 @@ function start() {
   count = 0;
   isFailed = false;
   isSuccessed = false;
-  if (ACTIVE_STOP_APP == 1 && appType == 0) {
+  if (ACTIVE_STOP_APP == 1 && appType == "0") {
     kill_app(APP_NAME);
   }
   startApp();
   commonWait();
-  if (ACTIVE_STOP_APP == 1 && appType == 0) {
+  if (ACTIVE_STOP_APP == 1 && appType == "0") {
     //跳过开屏广告
     btn_skip = id("btn_skip").findOne(2000);
     if (btn_skip) {
@@ -171,7 +174,7 @@ function start() {
     click_i_know();
     //console.time("判断当前页面耗时");
     let page = textMatches(
-      /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|到货提醒我|全部订单|请确认地址|去支付|请输入支付密码|支付成功|搜索|困鱼|日志|.*新版本.*)/
+      /(我知道了|确定|返回购物车|搜索|我常买|提交订单|支付订单|验证指纹|订单详情|加入购物车|到货提醒我|全部订单|请确认地址|去支付|请输入支付密码|支付成功|搜索|困鱼|日志|微信支付|.*新版本.*)/
     ).findOne(200); // 大约80ms
     //console.timeEnd("判断当前页面耗时");
     if (page) {
@@ -189,7 +192,7 @@ function start() {
       } else if (page.text() == "搜索") {
         // 首页
         doInHome();
-      } else if (page.text() == "请输入支付密码") {
+      } else if (page.text() == "请输入支付密码"||page.text() == "微信支付") {
         // 22/05/30 [免密支付] 一段时间后需要再次输入密码
         musicNotify("05.need_manual");
         sleep(SECOND_PER_TIME * 1000);
@@ -288,7 +291,7 @@ function start() {
 }
 
 function startApp() {
-  if (appType == 0) {
+  if (appType == "0") {
     launchApp(APP_NAME);
   } else {
     launchMiniApp();
@@ -298,39 +301,46 @@ function startApp() {
 function launchMiniApp() {
   log("开始打开[微信]");
   launchApp("微信");
-  let i = 3;
-  while (!text("通讯录").findOne(2000) && i-- > 0) {
-    log("不在微信首页, 返回");
-    back();
-  }
-  log("微信加载成功");
-  clickBottomScale(135, 2100, "微信");
-  sleep(2000);
-  i = 10;
-  while (
-    !text("最近使用的小程序")
-      .boundsInside(0, 1, getWidth(), getHeight())
-      .findOnce() &&
-    i-- > 0
-  ) {
-    log("往上翻页");
-    scrollUp();
-    sleep(2000);
-  }
-  sleep(2000);
-  log("点击[搜索小程序]");
-  click("搜索小程序");
-  sleep(2000);
-  className("android.widget.EditText")
-    .id("com.tencent.mm:id/cd6")
-    .findOnce()
-    .setText(APP_NAME);
   sleep(1000);
   let miniAppBtn = className("android.widget.Button")
     .textMatches(APP_NAME + ".+")
     .findOnce();
-  miniAppBtn && miniAppBtn.click();
-
+  if (miniAppBtn) {
+    miniAppBtn.click();
+  } else {
+    let i = 3;
+    while (!text("通讯录").findOne(2000) && i-- > 0) {
+      log("不在微信首页, 返回");
+      back();
+    }
+    log("微信加载成功");
+    clickBottomScale(135, 2100, "微信");
+    sleep(2000);
+    i = 10;
+    while (
+      !text("最近使用的小程序")
+        .boundsInside(0, 1, getWidth(), getHeight())
+        .findOnce() &&
+      i-- > 0
+    ) {
+      log("往上翻页");
+      scrollUp();
+      sleep(2000);
+    }
+    sleep(2000);
+    log("点击[搜索小程序]");
+    click("搜索小程序");
+    sleep(2000);
+    className("android.widget.EditText")
+      .id("com.tencent.mm:id/cd6")
+      .findOnce()
+      .setText(APP_NAME);
+    sleep(1000);
+    let miniAppBtn = className("android.widget.Button")
+      .textMatches(APP_NAME + ".+")
+      .findOnce();
+    miniAppBtn && miniAppBtn.click();
+  }
   let success = text("购物车").findOne(5000);
   if (success) {
     log("进入[%s]成功", APP_NAME);
@@ -649,7 +659,7 @@ function reload_mall_cart() {
   // 没有结算按钮的情况下, 才会重载购物车
   // log("重新加载购物车");
   if (!textStartsWith("您的购物车还空着呢").exists()) {
-    if (appType == 0) {
+    if (appType == "0") {
       scrollToTopInCart();
     }
     randomSwipe(
@@ -712,7 +722,7 @@ function doInItemSel() {
   }
 
   // 22/05/23, 每轮总共执行3次
-  if (!isPeakTime() && appType == 0) {
+  if (!isPeakTime() && appType == "0") {
     if (count % 300 == 10) {
       itemRecomSel();
     } else {
@@ -734,7 +744,9 @@ function doInItemSel() {
         // 05/06 无货商品会自动移除/减数量
         // 极端情况下, 商品秒无, 这个时候会没有结算按钮, 需要再次判断
         // 只是 "结算" 按钮的话, 并未选择商品, 只有出现 "结算(*)" 才是选中了 , 这种情况会出现在早上6点左右, 服务器繁忙的情况下
-        if (submit_btn.text().indexOf("(") != -1) {
+
+        // 对于小程序, 结算后面的括号可能是图片, 无法获取, 可以通过 明细 进行判断
+        if (submit_btn.text().indexOf("(") != -1 || text("明细").exists()) {
           // 05/11 这里除了[前方拥堵.*]之外, 需要等待大概600ms, 否则可能会点击无效
           if (count % 10 == 1) {
             check_all();
@@ -836,13 +848,13 @@ function doInItemSel() {
               // 立即支付|极速支付|20:00-22:00
               log("没有出现我知道了等失败信息");
               // sleep(1000);
-              // if (textStartsWith("放弃机会").exists()) {
-              //   toast("跳过加购");
-              //   textStartsWith("放弃机会").findOnce().parent().click();
-              //   commonWait();
-              // } else {
-              //   // 没有出现加购
-              // }
+              if (textStartsWith("放弃机会").exists()) {
+                toast("跳过加购");
+                textStartsWith("放弃机会").findOnce().parent().click();
+                commonWait();
+              } else {
+                // 没有出现加购
+              }
             }
           } else {
             //console.info("ERROR7: 点击[结算]无效, 可能需要等待");
@@ -852,10 +864,11 @@ function doInItemSel() {
           }
         } else {
           // 没有选择商品的情况下, 进行全选
+          log("购物车未勾选商品");
+
+          reload_mall_cart();
+
           check_all();
-          if (appType == 1) {
-            reload_mall_cart();
-          }
           // 判断是否是 [站点闭店休息中,暂时无法下单]
           let ClosedTxt = textMatches(
             ".*本站点暂停线上服务.*|.*仅支持自提.*"
@@ -879,14 +892,15 @@ function doInItemSel() {
 }
 
 function check_all() {
-  if (appType == 0) {
-    check_all2();
+  if (appType == "0") {
+    check_all_2();
   } else {
-    check_all_1;
+    check_all_1();
   }
 }
 
-function check_all2() {
+// APP全选
+function check_all_2() {
   // 先从底部购物车右上角查看all是多少
   //console.time("全选商品耗时"); // 已经全选的情况下大约20ms
   try {
@@ -899,9 +913,9 @@ function check_all2() {
       shopCartBtn &&
       ((isNote20U() && shopCartBtn.childCount() == 1) ||
         (!isNote20U() && shopCartBtn.parent().childCount() > 1) ||
-        (appType == 1 && shopCartBtn.parent().parent().childCount() > 1))
+        (appType == "1" && shopCartBtn.parent().parent().childCount() > 1))
     ) {
-      if (appType == 1) {
+      if (appType == "1") {
         shopCartBtn = shopCartBtn.parent();
       }
       let allNumber = isNote20U()
@@ -927,25 +941,25 @@ function check_all2() {
   //console.timeEnd("全选商品耗时");
 }
 
+// 小程序全选
 function check_all_1() {
   // 先从底部购物车右上角查看all是多少
-  //console.time("全选商品耗时"); // 已经全选的情况下大约20ms
+  console.time("全选商品1耗时"); // 已经全选的情况下大约20ms
   try {
     let shopCartBtn = text("购物车").findOnce(1);
-
     if (
       shopCartBtn &&
-      appType == 1 &&
+      appType == "1" &&
       shopCartBtn.parent().parent().childCount() > 1
     ) {
-      let allNumber = shopCartBtn.parent().parent().child(1).text();
-      // 构造"结算(allNumber)"的字符串用于匹配
-      let matchText = "结算(" + allNumber + ")";
-      log("计算后的商品数: ", matchText);
-      // 找到结算按钮的text
-      //let realText = textStartsWith("结算").findOne(200).text();
-      //log("实际选中的商品数: ", realText);
-      // 如果两者不匹配，则没有全选中
+      //   let allNumber = shopCartBtn.parent().parent().child(1).text();
+      //   // 构造"结算(allNumber)"的字符串用于匹配
+      //   let matchText = "结算(" + allNumber + ")";
+      //   log("计算后的商品数: ", matchText);
+      //   // 找到结算按钮的text
+      //   //let realText = textStartsWith("结算").findOne(200).text();
+      //   //log("实际选中的商品数: ", realText);
+      //   // 如果两者不匹配，则没有全选中
       let allChecked = !text("¥0").findOnce();
       if (!allChecked) {
         let radio_checkall = text("全选").findOne(200);
@@ -956,7 +970,7 @@ function check_all_1() {
     console.error(e);
     console.error(e.stack);
   }
-  //console.timeEnd("全选商品耗时");
+  console.timeEnd("全选商品1耗时");
 }
 
 function backInSubmit() {
@@ -984,8 +998,7 @@ function backInSubmit() {
 
 function doInSubmit() {
   countT++;
-  let timeTxt = className("android.widget.TextView")
-    .textMatches(/([0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/)
+  let timeTxt = textMatches(/(立即配送.*|[0-2]{1}\d:\d{2}-[0-2]{1}\d:\d{2})/)
     .findOne(300);
   if (timeTxt) {
     log("INFO 已选择时间:" + timeTxt.text());
@@ -996,7 +1009,8 @@ function doInSubmit() {
       log("出现[前方拥堵.*], 返回购物车");
       backInSubmit();
     } else if (textMatches(/(立即支付|极速支付)/).exists()) {
-      let arriveTimeBtn = textStartsWith("选择送达时间").findOne(1000);
+      let arriveTimeBtn =
+        textMatches(/(选择送达时间|立即配送).*/).findOne(1000);
       if (arriveTimeBtn) {
         // 220501, 理论上, 现在应该不会进这段逻辑了
         //选择送达时间

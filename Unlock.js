@@ -3,7 +3,7 @@ let _config = {
   timeout_findOne: 1000,
   device_height: device.height || 2340,
   device_width: device.width || 1080,
-  //password: "1234", // storages.create("touchren_common").put('password', "1234");
+  //password: "1234", // storages.create("touchren_common").put('passwd', "1234");
 };
 function Unlocker() {
   const _km = context.getSystemService(context.KEYGUARD_SERVICE);
@@ -85,7 +85,7 @@ function Unlocker() {
 
     // 打开滑动层
     this.swipe_layer();
-    let passwd = storages.create("touchren_common").get("password", "1234");
+    let passwd = storages.create("touchren_common").get("passwd", "1234");
     // 如果有锁屏密码则输入密码
     if (this.is_passwd() && !this.unlock(passwd)) {
       // 如果解锁失败
