@@ -153,6 +153,8 @@ function getProjectConfig() {
 
 function checkUpdate() {
   toast("正在检查更新");
+  let folder = engines.myEngine().cwd() + "/";
+  log("脚本所在路径: ", folder);
   if (project.versionName) {
     const versionUrl =
       "https://gh.api.99988866.xyz/https://raw.githubusercontent.com/touchren/meituanmaicai/master/project.json";
@@ -172,7 +174,11 @@ function checkUpdate() {
       if (version != project.versionName) {
         var go = confirm("有新的版本:[" + version + "]，马上更新", log);
         if (go) {
-          engines.execScriptFile("./update_by_git.js");
+          if (folder.indexOf("脚本") != -1) {
+            engines.execScriptFile("./update_by_git.js");
+          } else {
+            engines.execScriptFile("./update_by_http.js");
+          }
         }
       } else {
         toast("当前为最新版");

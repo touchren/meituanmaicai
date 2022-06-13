@@ -424,6 +424,21 @@ function clickBottomScale(x, y, btnTxt) {
   click(realX, realY);
 }
 
+// 返回 project.json 解析的对象
+function getProjectConfig() {
+  let path = "./project.json";
+  if (files.exists(path)) {
+    log("找到配置文件:[%s]", path);
+    let jsonStr = files.read(path);
+    log(jsonStr);
+    let project = JSON.parse(jsonStr);
+    log("版本号: ", project.versionName);
+    return project;
+  } else {
+    return new Object();
+  }
+}
+
 exports.kill_app = kill_app;
 exports.randomSwipe = randomSwipe;
 exports.isPeakTimeStr = isPeakTimeStr;
@@ -444,3 +459,4 @@ exports.scrollUp = scrollUp;
 exports.scrollDown = scrollDown;
 exports.clickScale = clickScale;
 exports.clickBottomScale = clickBottomScale;
+exports.getProjectConfig = getProjectConfig;

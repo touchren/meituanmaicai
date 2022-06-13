@@ -6,7 +6,8 @@
     "mtmc_sign.js",
     "cqmeituan_entry.js",
     "update_by_git.js",
-    "ui.js",
+    "update_by_http.js",
+    "main.js",
     "project.json"
   ],
   "useFeatures": [],
@@ -21,7 +22,7 @@
     "stableMode": false,
     "volumeUpcontrol": true
   },
-  "main": "ui.js",
+  "main": "main.js",
   "name": "聪抢美团",
   "packageName": "com.touchren.cqmeituan",
   "scripts": {},
