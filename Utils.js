@@ -441,7 +441,7 @@ function getProjectConfig() {
 
 function globalLogConfig() {
   let now = new Date();
-  var month = date.getMonth() + 1;
+  var month = now.getMonth() + 1;
   month = month < 10 ? "0" + month : month;
   console.setGlobalLogConfig({
     file:

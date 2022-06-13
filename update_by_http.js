@@ -2,8 +2,7 @@ const REPO = "/touchren/meituanmaicai";
 const BRANCH = "main";
 
 let {
-  getProjectConfig,
-  globalLogConfig,
+  getProjectConfig,  
   downloadFromGithub,
 } = require("./Utils.js");
 

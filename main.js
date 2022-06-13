@@ -2,8 +2,8 @@
 
 let {
   getProjectConfig,
-  globalLogConfig,
   downloadFromGithub,
+  globalLogConfig,
 } = require("./Utils.js");
 
 globalLogConfig();
@@ -148,7 +148,7 @@ function conPerReq() {
 function checkUpdate() {
   toast("正在检查更新");
   let folder = engines.myEngine().cwd() + "/";
-  log("脚本所在路径: ", folder);
+  console.log("脚本所在路径: ", folder);
   if (project.versionName) {
     try {
       let res = downloadFromGithub(
