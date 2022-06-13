@@ -439,6 +439,79 @@ function getProjectConfig() {
   }
 }
 
+function globalLogConfig() {
+  let now = new Date();
+  var month = date.getMonth() + 1;
+  month = month < 10 ? "0" + month : month;
+  console.setGlobalLogConfig({
+    file:
+      "/storage/emulated/0/脚本/logs/console-" +
+      now.getYear() +
+      "_" +
+      month +
+      "_" +
+      now.getDate() +
+      ".log",
+  });
+}
+
+function downloadFromGithub(repo, branch, file) {
+  let CONTEXT_URLS = [
+    "https://ghproxy.futils.com/https://github.com" +
+      repo +
+      "/blob/" +
+      branch +
+      "/",
+    "https://cdn.staticaly.com/gh" + repo + "/" + branch + "/",
+    //"https://raw.xn--gzu630h.xn--kpry57d"+repo+"/"+branch+"/",
+    "https://raw.githubusercontents.com" + repo + "/" + branch + "/",
+    //"https://gcore.jsdelivr.net/gh"+repo+"@"+branch+"/",
+    "https://fastly.jsdelivr.net/gh" + repo + "@" + branch + "/",
+    "https://ghproxy.com/https://raw.githubusercontent.com" +
+      repo +
+      "/" +
+      branch +
+      "/",
+    "https://raw.iqiq.io" + repo + "/" + branch + "/",
+    //"https://raw.githubusercontent.com"+repo+"/"+branch+"/",
+  ];
+  let downloadSuccess = false;
+  CONTEXT_URLS.forEach((context_url, i) => {
+    if (!downloadSuccess) {
+      let url = context_url + file;
+      console.time(
+        "脚本" + (index + 1) + "[" + url + "]第" + (i + 1) + "次更新: 耗时"
+      );
+      var res_script = {};
+      try {
+        res_script = http.get(url, {
+          headers: {
+            "Accept-Language": "en-us,en;q=0.5",
+            "User-Agent":
+              "Mozilla/5.0(Macintosh;IntelMacOSX10_7_0)AppleWebKit/535.11(KHTML,likeGecko)Chrome/17.0.963.56Safari/535.11",
+          },
+        });
+      } catch (e) {
+        log("下载远程脚本异常: ", e);
+        log(e.stack);
+      }
+      console.timeEnd(
+        "脚本" + (index + 1) + "[" + url + "]第" + (i + 1) + "次更新: 耗时"
+      );
+      if (res_script.statusCode == 200) {
+        downloadSuccess = true;
+        return res_script;
+      } else {
+        toastLog(
+          "脚本获取失败！建议您检查网络后再重新运行软件吧\nHTTP状态码:" +
+            res_script.statusMessage
+        );
+      }
+    }
+  });
+  return;
+}
+
 exports.kill_app = kill_app;
 exports.randomSwipe = randomSwipe;
 exports.isPeakTimeStr = isPeakTimeStr;
@@ -460,3 +533,5 @@ exports.scrollDown = scrollDown;
 exports.clickScale = clickScale;
 exports.clickBottomScale = clickBottomScale;
 exports.getProjectConfig = getProjectConfig;
+exports.globalLogConfig = globalLogConfig;
+exports.downloadFromGithub = downloadFromGithub;

@@ -182,10 +182,12 @@ function checkUpdate() {
       if (version != project.versionName) {
         var go = confirm("有新的版本:[" + version + "]，马上更新", log);
         if (go) {
-          if (folder.indexOf("脚本") != -1) {
-            engines.execScriptFile("./update_by_git.js");
-          } else {
+          if (folder.indexOf("/data/user/") == 0) {
+            log("判断脚本为apk打包模式, 使用在线下载更新");
             engines.execScriptFile("./update_by_http.js");
+          } else {
+            log("判断脚本为源码使用模式, 使用Git更新");
+            engines.execScriptFile("./update_by_git.js");
           }
         }
       } else {
