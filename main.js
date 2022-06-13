@@ -1,12 +1,12 @@
 "ui";
 
-console.setGlobalLogConfig({
-  file:
-    "/storage/emulated/0/脚本/logs/console-" +
-    (new Date().getMonth() + 1) +
-    +new Date().getDate() +
-    ".log",
-});
+let {
+  getProjectConfig,
+  globalLogConfig,
+  downloadFromGithub,
+} = require("./Utils.js");
+
+globalLogConfig();
 
 var project = getProjectConfig();
 
@@ -145,55 +145,39 @@ function conPerReq() {
   console.hide();
 }
 
-function getProjectConfig() {
-  let path = "./project.json";
-  if (files.exists(path)) {
-    log("找到配置文件:[%s]", path);
-    let jsonStr = files.read(path);
-    log(jsonStr);
-    let project = JSON.parse(jsonStr);
-    log(project.versionName);
-    return project;
-  } else {
-    return new Object();
-  }
-}
-
 function checkUpdate() {
   toast("正在检查更新");
   let folder = engines.myEngine().cwd() + "/";
   log("脚本所在路径: ", folder);
   if (project.versionName) {
-    const versionUrl =
-      "https://gh.api.99988866.xyz/https://raw.githubusercontent.com/touchren/meituanmaicai/master/project.json";
-    http.get(versionUrl, {}, function (res, err) {
-      if (err) {
-        toast("检查更新出错，请手动前往项目地址查看");
-        return;
-      }
-      try {
-        res = res.body.json();
-      } catch (err) {
-        toast("检查更新出错，请手动前往项目地址查看");
-        return;
-      }
-      const version = res.versionName;
-      const log = res.log;
-      if (version != project.versionName) {
-        var go = confirm("有新的版本:[" + version + "]，马上更新", log);
-        if (go) {
-          if (folder.indexOf("/data/user/") == 0) {
-            log("判断脚本为apk打包模式, 使用在线下载更新");
-            engines.execScriptFile("./update_by_http.js");
-          } else {
-            log("判断脚本为源码使用模式, 使用Git更新");
-            engines.execScriptFile("./update_by_git.js");
-          }
+    try {
+      let res = downloadFromGithub(
+        "/touchren/meituanmaicai",
+        "master",
+        "project.json"
+      );
+      res = res.body.json();
+    } catch (err) {
+      toast("检查更新出错，请手动前往项目地址查看");
+      return;
+    }
+    const version = res.versionName;
+    const log = res.log;
+    if (version != project.versionName) {
+      var go = confirm("有新的版本:[" + version + "]，马上更新", log);
+      if (go) {
+        if (folder.indexOf("/data/user/") == 0) {
+          log("判断脚本为apk打包模式, 使用在线下载更新");
+          engines.execScriptFile("./update_by_http.js");
+        } else {
+          log("判断脚本为源码使用模式, 使用Git更新");
+          engines.execScriptFile("./update_by_git.js");
         }
-      } else {
-        toast("当前为最新版");
+        exit();
       }
-    });
+    } else {
+      toast("当前为最新版");
+    }
   } else {
     log("无法获取当前版本号, 跳过更新检查");
   }

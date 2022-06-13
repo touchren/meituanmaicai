@@ -462,6 +462,11 @@ function downloadFromGithub(repo, branch, file) {
       "/blob/" +
       branch +
       "/",
+    "https://gh.api.99988866.xyz/https://raw.githubusercontent.com" +
+      repo +
+      "/" +
+      branch +
+      "/",
     "https://cdn.staticaly.com/gh" + repo + "/" + branch + "/",
     //"https://raw.xn--gzu630h.xn--kpry57d"+repo+"/"+branch+"/",
     "https://raw.githubusercontents.com" + repo + "/" + branch + "/",

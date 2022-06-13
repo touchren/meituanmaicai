@@ -7,8 +7,6 @@ let {
   downloadFromGithub,
 } = require("./Utils.js");
 
-globalLogConfig();
-
 for (i = 0; i < 3; i++) {
   log("等待%s秒后开始", 3 - i);
   sleep(1 * 1000);
