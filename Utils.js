@@ -482,11 +482,11 @@ function downloadFromGithub(repo, branch, file) {
     //"https://raw.githubusercontent.com"+repo+"/"+branch+"/",
   ];
   let downloadSuccess = false;
+  var res_script = {};
   CONTEXT_URLS.forEach((context_url, i) => {
     if (!downloadSuccess) {
       let url = context_url + file;
-      console.time("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
-      var res_script = {};
+      console.time("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");      
       try {
         res_script = http.get(url, {
           headers: {
@@ -502,7 +502,6 @@ function downloadFromGithub(repo, branch, file) {
       console.timeEnd("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
       if (res_script.statusCode == 200) {
         downloadSuccess = true;
-        return res_script;
       } else {
         toastLog(
           "脚本获取失败！建议您检查网络后再重新运行软件吧\nHTTP状态码:" +
@@ -511,7 +510,7 @@ function downloadFromGithub(repo, branch, file) {
       }
     }
   });
-  return;
+  return res_script;
 }
 
 exports.kill_app = kill_app;
