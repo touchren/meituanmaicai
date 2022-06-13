@@ -157,28 +157,28 @@ function checkUpdate() {
         "project.json"
       );
       res = res.body.json();
+      const version = res.versionName;
+      const log = res.log;
+      if (version != project.versionName) {
+        var go = confirm("有新的版本:[" + version + "]，马上更新", log);
+        if (go) {
+          if (folder.indexOf("/data/user/") == 0) {
+            console.log("判断脚本为apk打包模式, 使用在线下载更新");
+            engines.execScriptFile("./update_by_http.js");
+          } else {
+            console.log("判断脚本为源码使用模式, 使用Git更新");
+            engines.execScriptFile("./update_by_git.js");
+          }
+          exit();
+        }
+      } else {
+        toast("当前为最新版");
+      }
     } catch (err) {
       toast("检查更新出错，请手动前往项目地址查看");
       console.error(err);
       console.error(err.stack);
       return;
-    }
-    const version = res.versionName;
-    const log = res.log;
-    if (version != project.versionName) {
-      var go = confirm("有新的版本:[" + version + "]，马上更新", log);
-      if (go) {
-        if (folder.indexOf("/data/user/") == 0) {
-          console.log("判断脚本为apk打包模式, 使用在线下载更新");
-          engines.execScriptFile("./update_by_http.js");
-        } else {
-          console.log("判断脚本为源码使用模式, 使用Git更新");
-          engines.execScriptFile("./update_by_git.js");
-        }
-        exit();
-      }
-    } else {
-      toast("当前为最新版");
     }
   } else {
     console.log("无法获取当前版本号, 跳过更新检查");
