@@ -456,7 +456,7 @@ function globalLogConfig() {
 }
 
 function downloadFromGithub(repo, branch, file) {
-  log("尝试下载文件",repo, branch, file);
+  log("尝试下载文件", repo, branch, file);
   let CONTEXT_URLS = [
     "https://ghproxy.futils.com/https://github.com" +
       repo +
@@ -485,9 +485,7 @@ function downloadFromGithub(repo, branch, file) {
   CONTEXT_URLS.forEach((context_url, i) => {
     if (!downloadSuccess) {
       let url = context_url + file;
-      console.time(
-        "脚本" + (index + 1) + "[" + url + "]第" + (i + 1) + "次更新: 耗时"
-      );
+      console.time("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
       var res_script = {};
       try {
         res_script = http.get(url, {
@@ -501,9 +499,7 @@ function downloadFromGithub(repo, branch, file) {
         log("下载远程脚本异常: ", e);
         log(e.stack);
       }
-      console.timeEnd(
-        "脚本" + (index + 1) + "[" + url + "]第" + (i + 1) + "次更新: 耗时"
-      );
+      console.timeEnd("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
       if (res_script.statusCode == 200) {
         downloadSuccess = true;
         return res_script;
