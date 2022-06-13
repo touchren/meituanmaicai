@@ -27,6 +27,10 @@ if (projectBtn) {
       PROJECT_NAME +
       "], 如果显示[Failed]请稍后重试"
   );
+  back();
+  sleep(1000);
+  back();
+  sleep(1000);
 } else {
   toastLog("没有找到项目[ " + PROJECT_NAME + "], 更新失败!");
 }
