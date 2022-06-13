@@ -98,12 +98,14 @@ function doInCheckIn() {
     reward3 &&
       click(reward3.bounds().centerX(), reward3.bounds().centerY() - 95) &&
       sleep(2000);
+    click("知道了");
     click("开心收下");
 
     let reward7 = text("7天").findOnce();
     reward7 &&
       click(reward7.bounds().centerX(), reward7.bounds().centerY() - 95) &&
       sleep(2000);
+    click("知道了");
     click("开心收下");
 
     while (text("领任务").exists()) {

@@ -65,7 +65,7 @@ ui.layout(
 
 ui.ver.setText("\n版本：" + project.versionName);
 
-//threads.start(checkUpdate);
+threads.start(checkUpdate);
 
 ui.automationPermission.click(function () {
   threads.start(autoPerReq);
@@ -170,7 +170,7 @@ function checkUpdate() {
       const version = res.versionName;
       const log = res.log;
       if (version != project.versionName) {
-        var go = confirm("有新的版本，马上更新" + version, log);
+        var go = confirm("有新的版本:[" + version + "]，马上更新", log);
         if (go) {
           engines.execScriptFile("./update_by_git.js");
         }
