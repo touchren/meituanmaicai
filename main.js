@@ -153,7 +153,7 @@ function checkUpdate() {
     try {
       let res = downloadFromGithub(
         "/touchren/meituanmaicai",
-        "master",
+        "main",
         "project.json"
       );
       res = res.body.json();
