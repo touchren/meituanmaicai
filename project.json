@@ -1,0 +1,40 @@
+{
+  "assets": [
+    "Unlock.js",
+    "Utils.js",
+    "meituanmaicai.js",
+    "mtmc_sign.js",
+    "cqmeituan_entry.js",
+    "update_by_git.js",
+    "ui.js",
+    "project.json"
+  ],
+  "useFeatures": [],
+  "icon": "res/splashIcon.png",
+  "launchConfig": {
+    "hideLauncher": false,
+    "hideLogs": false,
+    "displaySplash": false,
+    "serviceDesc": "必须开启辅助功能才能使用本程序",
+    "splashIcon": "res/splashIcon.png",
+    "splashText": "请低调使用",
+    "stableMode": false,
+    "volumeUpcontrol": true
+  },
+  "main": "ui.js",
+  "name": "聪抢美团",
+  "packageName": "com.touchren.cqmeituan",
+  "scripts": {},
+  "signingConfig": {
+    "alias": "",
+    "keystore": ""
+  },
+  "publish": {
+    "log": "log描述",
+    "details": "details描述",
+    "summary": "summary描述"
+  },
+  "log": "log描述2",
+  "versionCode": 1,
+  "versionName": "22.06.13"
+}
