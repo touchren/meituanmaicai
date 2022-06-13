@@ -1,6 +1,6 @@
 "ui";
 
-const VERSION = "22.06.10-dev";
+var project = getProjectConfig();
 
 var storage = storages.create("touchren_common");
 var myStorage = storages.create("touchren_mtmc");
@@ -63,7 +63,7 @@ ui.layout(
   </frame>
 );
 
-ui.ver.setText("\n版本：" + VERSION);
+ui.ver.setText("\n版本：" + project.versionName);
 
 //threads.start(checkUpdate);
 
@@ -137,33 +137,48 @@ function conPerReq() {
   console.hide();
 }
 
+function getProjectConfig() {
+  let path = "./project.json";
+  if (files.exists(path)) {
+    log("找到配置文件:[%s]", path);
+    let jsonStr = files.read(path);
+    log(jsonStr);
+    let project = JSON.parse(jsonStr);
+    log(project.versionName);
+    return project;
+  } else {
+    return new Object();
+  }
+}
+
 function checkUpdate() {
   toast("正在检查更新");
-  const versionUrl =
-    "https://gh.api.99988866.xyz/https://raw.githubusercontent.com/touchren/meituanmaicai/master/version.json";
-  http.get(versionUrl, {}, function (res, err) {
-    if (err) {
-      toast("检查更新出错，请手动前往项目地址查看");
-      return;
-    }
-    try {
-      res = res.body.json();
-    } catch (err) {
-      toast("检查更新出错，请手动前往项目地址查看");
-      return;
-    }
-    const version = res.version;
-    const log = res.log;
-    if (version != VERSION) {
-      var go = confirm("有新的版本，前往下载" + version, log);
-      if (go) {
-        alert("如果打不开Github链接，请查看备用下载");
-        app.openUrl(
-          "https://github.com/touchren/meituanmaicai/releases/latest"
-        );
+  if (project.versionName) {
+    const versionUrl =
+      "https://gh.api.99988866.xyz/https://raw.githubusercontent.com/touchren/meituanmaicai/master/project.json";
+    http.get(versionUrl, {}, function (res, err) {
+      if (err) {
+        toast("检查更新出错，请手动前往项目地址查看");
+        return;
       }
-    } else {
-      toast("当前为最新版");
-    }
-  });
+      try {
+        res = res.body.json();
+      } catch (err) {
+        toast("检查更新出错，请手动前往项目地址查看");
+        return;
+      }
+      const version = res.versionName;
+      const log = res.log;
+      if (version != project.versionName) {
+        var go = confirm("有新的版本，马上更新" + version, log);
+        if (go) {
+          engines.execScriptFile("./update_by_git.js");
+        }
+      } else {
+        toast("当前为最新版");
+      }
+    });
+  } else {
+    log("无法获取当前版本号, 跳过更新检查");
+  }
 }

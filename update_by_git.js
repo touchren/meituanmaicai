@@ -17,7 +17,7 @@ if (projectBtn) {
   toastLog("进入项目:[" + PROJECT_NAME + "]");
   click(PROJECT_NAME);
   sleep(2000);
-  clickScale(910, 245, "Git菜单");
+  clickScale(910, 265, "Git菜单");
   sleep(2000);
   click("Pull");
   toastLog("等待更新完成");

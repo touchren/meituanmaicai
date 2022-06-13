@@ -29,12 +29,7 @@
     "alias": "",
     "keystore": ""
   },
-  "publish": {
-    "log": "log描述",
-    "details": "details描述",
-    "summary": "summary描述"
-  },
-  "log": "log描述2",
+  "log": "本次修改内容描述",
   "versionCode": 1,
   "versionName": "22.06.13"
 }
