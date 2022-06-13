@@ -85,7 +85,7 @@ var SCROLL_VIEW_DEPTH_NOTE20U = 2;
 console.setGlobalLogConfig({
   file:
     "/storage/emulated/0/脚本/logs/console-" +
-    new Date().getMonth() +
+    (new Date().getMonth() + 1) +
     +new Date().getDate() +
     ".log",
 });

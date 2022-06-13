@@ -1,5 +1,13 @@
 "ui";
 
+console.setGlobalLogConfig({
+  file:
+    "/storage/emulated/0/脚本/logs/console-" +
+    (new Date().getMonth() + 1) +
+    +new Date().getDate() +
+    ".log",
+});
+
 var project = getProjectConfig();
 
 var storage = storages.create("touchren_common");
