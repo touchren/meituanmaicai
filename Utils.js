@@ -446,7 +446,7 @@ function globalLogConfig() {
   console.setGlobalLogConfig({
     file:
       "/storage/emulated/0/脚本/logs/console-" +
-      now.getYear() +
+      (now.getYear() - 100) +
       "_" +
       month +
       "_" +
@@ -456,6 +456,7 @@ function globalLogConfig() {
 }
 
 function downloadFromGithub(repo, branch, file) {
+  log("尝试下载文件",repo, branch, file);
   let CONTEXT_URLS = [
     "https://ghproxy.futils.com/https://github.com" +
       repo +
