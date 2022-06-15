@@ -516,7 +516,7 @@ function downloadFromGithub(repo, branch, file) {
 
 function updateByGit(projectName) {
   const APP_NAME = "Pocket Git";
-  toastLog("结束APP[" + APP_NAME + "]");
+  log("结束APP[" + APP_NAME + "]");
   kill_app(APP_NAME);
   toastLog("打开APP[" + APP_NAME + "]");
   launchApp(APP_NAME);
@@ -535,15 +535,13 @@ function updateByGit(projectName) {
     sleep(1000);
     click("Pull");
     toastLog("等待更新完成");
-    sleep(8000);
+    sleep(5000);
     toastLog(
       "请检查通知栏, 成功的情况下会显示[Finished pulling " +
         projectName +
         "], 如果显示[Failed]请稍后重试"
     );
-
-    back();
-    sleep(1000);
+    sleep(3000);
     // 返回首页
     back();
     sleep(1000);
