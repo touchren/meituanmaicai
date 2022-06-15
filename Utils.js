@@ -525,8 +525,13 @@ function updateByGit(projectName) {
   if (projectBtn) {
     toastLog("进入项目[" + projectName + "]");
     click(projectName);
-    sleep(2000);
-    clickScale(910, 265, "Git菜单");
+    sleep(1000);
+    let sign = desc("Remotes…").findOne(1000);
+    if (sign) {
+      sign.click();
+    } else {
+      clickScale(910, 265, "Git菜单");
+    }
     sleep(1000);
     click("Pull");
     toastLog("等待更新完成");
@@ -536,7 +541,7 @@ function updateByGit(projectName) {
         projectName +
         "], 如果显示[Failed]请稍后重试"
     );
-    
+
     back();
     sleep(1000);
     // 返回首页
@@ -576,7 +581,7 @@ function updateByHttp() {
 
 function hasUpdate(repo, branch, configFile) {
   !configFile && (configFile = "project.json");
-  toastLog("正在检查更新");  
+  toastLog("正在检查更新");
   let project = getProjectConfig("./project.json");
   if (project.versionName) {
     try {

@@ -170,7 +170,7 @@ function checkUpdate() {
         } else {
           toastLog("更新失败, 请稍后重试");
         }
-        sleep(2000);
+        sleep(5000);
         engines.myEngine().forceStop();
       }
     }
