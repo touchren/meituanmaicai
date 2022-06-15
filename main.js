@@ -159,7 +159,8 @@ function checkUpdate() {
           console.log("判断脚本为源码使用模式, 使用Git更新");
           engines.execScriptFile("./update_by_git.js");
         }
-        let count = 10;
+        sleep(10000);
+        let count = 2;
         while (!isUpdated() && count-- > 0) {
           toastLog("更新还未完成, 请稍等");
           sleep(10000);
