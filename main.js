@@ -2,7 +2,6 @@
 
 let {
   getProjectConfig,
-  downloadFromGithub,
   globalLogConfig,
   hasUpdate,
 } = require("./Utils.js");

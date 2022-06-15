@@ -430,7 +430,7 @@ function getProjectConfig(path) {
   if (files.exists(path)) {
     log("找到配置文件:[%s]", path);
     let jsonStr = files.read(path);
-    log(jsonStr);
+    //log(jsonStr);
     let project = JSON.parse(jsonStr);
     log("版本号: ", project.versionName);
     return project;
@@ -482,7 +482,7 @@ function downloadFromGithub(repo, branch, file) {
     //"https://raw.githubusercontent.com"+repo+"/"+branch+"/",
   ];
   let downloadSuccess = false;
-  var res_script = {};
+  var body = {};
   CONTEXT_URLS.forEach((context_url, i) => {
     if (!downloadSuccess) {
       let url = context_url + file;
@@ -502,6 +502,7 @@ function downloadFromGithub(repo, branch, file) {
       console.timeEnd("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
       if (res_script.statusCode == 200) {
         downloadSuccess = true;
+        body = res_script.body;
       } else {
         toastLog(
           "脚本获取失败！建议您检查网络后再重新运行软件吧\nHTTP状态码:" +
@@ -510,7 +511,7 @@ function downloadFromGithub(repo, branch, file) {
       }
     }
   });
-  return res_script;
+  return body;
 }
 
 function updateByGit(proejctName) {
@@ -552,12 +553,11 @@ function updateByHttp() {
     let folder = engines.myEngine().cwd() + "/";
     log("开始获取远程脚本, 保存路径: ", folder);
     project.assets.forEach((file, index) => {
-      let res_script = downloadFromGithub(REPO, BRANCH, file);
-      if (res_script) {
+      let body = downloadFromGithub(REPO, BRANCH, file);
+      if (body) {
         let updateFile = folder + file;
         log("保存文件路径:", updateFile);
-        files.writeBytes(updateFile, res_script.body.bytes());
-        res_script.close();
+        files.writeBytes(updateFile, body.bytes());
         toastLog("脚本" + file + "更新成功");
       } else {
         toastLog("脚本" + file + "更新失败, 请稍后重试");
@@ -578,8 +578,8 @@ function hasUpdate(repo, branch, configFile) {
   let project = getProjectConfig("./project.json");
   if (project.versionName) {
     try {
-      let res = downloadFromGithub(repo, branch, configFile);
-      let remoteProject = res.body.json();
+      let body = downloadFromGithub(repo, branch, configFile);
+      let remoteProject = body.json();
       res.close();
       if (remoteProject.versionName != project.versionName) {
         return remoteProject;
