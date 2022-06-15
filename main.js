@@ -159,9 +159,19 @@ function checkUpdate() {
           console.log("判断脚本为源码使用模式, 使用Git更新");
           engines.execScriptFile("./update_by_git.js");
         }
-        log("启动新版本的[main.js]");
-        engines.execScriptFile("./main.js");
-        log("退出当前程序");
+        let count = 10;
+        while (!isUpdated() && count-- > 0) {
+          toastLog("更新还未完成, 请稍等");
+          sleep(5000);
+        }
+        if (isUpdated()) {
+          // 脚本执行是异步的, 所以需要等到文件更新完成才能重新启动;
+          toastLog("启动新版本的[main.js]");
+          engines.execScriptFile("./main.js");
+        } else {
+          toastLog("更新失败, 请稍后重试");
+        }
+        sleep(2000);
         engines.myEngine().forceStop();
       }
     }
@@ -170,5 +180,14 @@ function checkUpdate() {
     console.error(err);
     console.error(err.stack);
     return;
+  }
+}
+
+function isUpdated() {
+  let newProject = getProjectConfig();
+  if (newProject.versionName != project.versionName) {
+    return true;
+  } else {
+    return false;
   }
 }

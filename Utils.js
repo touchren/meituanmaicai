@@ -428,7 +428,7 @@ function clickBottomScale(x, y, btnTxt) {
 function getProjectConfig(path) {
   !path && (path = "./project.json");
   if (files.exists(path)) {
-    log("找到配置文件:[%s]", path);
+    log("找到本地配置文件:[%s]", path);
     let jsonStr = files.read(path);
     //log(jsonStr);
     let project = JSON.parse(jsonStr);
