@@ -495,20 +495,20 @@ function downloadFromGithub(repo, branch, file) {
               "Mozilla/5.0(Macintosh;IntelMacOSX10_7_0)AppleWebKit/535.11(KHTML,likeGecko)Chrome/17.0.963.56Safari/535.11",
           },
         });
+        if (res_script.statusCode == 200) {
+          downloadSuccess = true;
+          body = res_script.body;
+        } else {
+          toastLog(
+            "脚本获取失败！建议您检查网络后再重新运行软件吧\nHTTP状态码:" +
+              res_script.statusMessage
+          );
+        }
       } catch (e) {
         log("下载远程脚本异常: ", e);
         log(e.stack);
       }
       console.timeEnd("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
-      if (res_script.statusCode == 200) {
-        downloadSuccess = true;
-        body = res_script.body;
-      } else {
-        toastLog(
-          "脚本获取失败！建议您检查网络后再重新运行软件吧\nHTTP状态码:" +
-            res_script.statusMessage
-        );
-      }
     }
   });
   return body;
