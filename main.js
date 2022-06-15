@@ -1,10 +1,6 @@
 "ui";
 
-let {
-  getProjectConfig,
-  globalLogConfig,
-  hasUpdate,
-} = require("./Utils.js");
+let { getProjectConfig, globalLogConfig, hasUpdate } = require("./Utils.js");
 
 globalLogConfig();
 
@@ -146,6 +142,8 @@ function conPerReq() {
 }
 
 function checkUpdate() {
+  let folder = engines.myEngine().cwd() + "/";
+  console.log("脚本所在路径: ", folder);
   try {
     let res = hasUpdate("/touchren/meituanmaicai", "main", "project.json");
     if (res) {
@@ -161,7 +159,10 @@ function checkUpdate() {
           console.log("判断脚本为源码使用模式, 使用Git更新");
           engines.execScriptFile("./update_by_git.js");
         }
-        exit();
+        log("启动新版本的[main.js]");
+        engines.execScriptFile("./main.js");
+        log("退出当前程序");
+        engines.myEngine().forceStop();
       }
     }
   } catch (err) {

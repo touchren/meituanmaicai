@@ -576,9 +576,7 @@ function updateByHttp() {
 
 function hasUpdate(repo, branch, configFile) {
   !configFile && (configFile = "project.json");
-  toastLog("正在检查更新");
-  let folder = engines.myEngine().cwd() + "/";
-  console.log("脚本所在路径: ", folder);
+  toastLog("正在检查更新");  
   let project = getProjectConfig("./project.json");
   if (project.versionName) {
     try {
