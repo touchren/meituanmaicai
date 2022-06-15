@@ -48,7 +48,7 @@ function kill_app(packageName) {
     }
 
     log(app.getAppName(name) + "应用已被关闭");
-    sleep(2000);
+    sleep(1000);
     log("执行[返回]");
     back();
     commonWait();
@@ -516,19 +516,18 @@ function downloadFromGithub(repo, branch, file) {
 
 function updateByGit(projectName) {
   const APP_NAME = "Pocket Git";
-  toastLog("结束APP:[" + APP_NAME + "]");
+  toastLog("结束APP[" + APP_NAME + "]");
   kill_app(APP_NAME);
-  sleep(2000);
-  toastLog("打开APP:[" + APP_NAME + "]");
+  toastLog("打开APP[" + APP_NAME + "]");
   launchApp(APP_NAME);
   sleep(3000);
   let projectBtn = text(projectName).findOne(2000);
   if (projectBtn) {
-    toastLog("进入项目:[" + projectName + "]");
+    toastLog("进入项目[" + projectName + "]");
     click(projectName);
     sleep(2000);
     clickScale(910, 265, "Git菜单");
-    sleep(2000);
+    sleep(1000);
     click("Pull");
     toastLog("等待更新完成");
     sleep(8000);
@@ -537,12 +536,13 @@ function updateByGit(projectName) {
         projectName +
         "], 如果显示[Failed]请稍后重试"
     );
-    // 返回首页
-    back();
-    sleep(2000);
-    // 返回之前程序
+    
     back();
     sleep(1000);
+    // 返回首页
+    back();
+    sleep(1000);
+    // 返回之前程序
     back();
     sleep(1000);
   } else {
@@ -576,7 +576,7 @@ function updateByHttp() {
 
 function hasUpdate(repo, branch, configFile) {
   !configFile && (configFile = "project.json");
-  toast("正在检查更新");
+  toastLog("正在检查更新");
   let folder = engines.myEngine().cwd() + "/";
   console.log("脚本所在路径: ", folder);
   let project = getProjectConfig("./project.json");
@@ -587,10 +587,10 @@ function hasUpdate(repo, branch, configFile) {
       if (remoteProject.versionName != project.versionName) {
         return remoteProject;
       } else {
-        toast("当前为最新版");
+        toastLog("当前为最新版");
       }
     } catch (err) {
-      toast("检查更新出错，请手动前往项目地址查看");
+      toastLog("检查更新出错，请手动前往项目地址查看");
       console.error(err);
       console.error(err.stack);
       return;
