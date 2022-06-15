@@ -147,7 +147,7 @@ function conPerReq() {
 
 function checkUpdate() {
   try {
-    let res = hasUpdate("/touchren/meituanmaicai", "main", "proejct.json");
+    let res = hasUpdate("/touchren/meituanmaicai", "main", "project.json");
     if (res) {
       var go = confirm(
         "有新的版本:[" + res.versionName + "]，马上更新",

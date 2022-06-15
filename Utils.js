@@ -514,7 +514,7 @@ function downloadFromGithub(repo, branch, file) {
   return body;
 }
 
-function updateByGit(proejctName) {
+function updateByGit(projectName) {
   const APP_NAME = "Pocket Git";
   toastLog("结束APP:[" + APP_NAME + "]");
   kill_app(APP_NAME);
@@ -522,10 +522,10 @@ function updateByGit(proejctName) {
   toastLog("打开APP:[" + APP_NAME + "]");
   launchApp(APP_NAME);
   sleep(3000);
-  let projectBtn = text(proejctName).findOne(2000);
+  let projectBtn = text(projectName).findOne(2000);
   if (projectBtn) {
-    toastLog("进入项目:[" + proejctName + "]");
-    click(proejctName);
+    toastLog("进入项目:[" + projectName + "]");
+    click(projectName);
     sleep(2000);
     clickScale(910, 265, "Git菜单");
     sleep(2000);
@@ -534,7 +534,7 @@ function updateByGit(proejctName) {
     sleep(10000);
     toastLog(
       "请检查通知栏, 成功的情况下会显示[Finished pulling " +
-        proejctName +
+        projectName +
         "], 如果显示[Failed]请稍后重试"
     );
     back();
@@ -542,7 +542,7 @@ function updateByGit(proejctName) {
     back();
     sleep(1000);
   } else {
-    toastLog("没有找到项目[ " + proejctName + "], 更新失败!");
+    toastLog("没有找到项目[ " + projectName + "], 更新失败!");
   }
 }
 
