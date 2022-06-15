@@ -531,12 +531,16 @@ function updateByGit(projectName) {
     sleep(2000);
     click("Pull");
     toastLog("等待更新完成");
-    sleep(10000);
+    sleep(8000);
     toastLog(
       "请检查通知栏, 成功的情况下会显示[Finished pulling " +
         projectName +
         "], 如果显示[Failed]请稍后重试"
     );
+    // 返回首页
+    back();
+    sleep(2000);
+    // 返回之前程序
     back();
     sleep(1000);
     back();
