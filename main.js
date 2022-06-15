@@ -162,12 +162,10 @@ function checkUpdate() {
         let count = 10;
         while (!isUpdated() && count-- > 0) {
           toastLog("更新还未完成, 请稍等");
-          sleep(5000);
+          sleep(10000);
         }
         if (isUpdated()) {
-          // 脚本执行是异步的, 所以需要等到文件更新完成才能重新启动;
-          toastLog("启动新版本的[main.js]");
-          engines.execScriptFile("./main.js");
+          toastLog("更新成功, 请重新运行程序");
         } else {
           toastLog("更新失败, 请稍后重试");
         }
