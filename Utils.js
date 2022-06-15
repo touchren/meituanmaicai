@@ -588,6 +588,12 @@ function hasUpdate(repo, branch, configFile) {
       let body = downloadFromGithub(repo, branch, configFile);
       let remoteProject = body.json();
       if (remoteProject.versionName != project.versionName) {
+        toastLog(
+          "最新版本为:" +
+            remoteProject.versionName +
+            ", 更新内容: " +
+            remoteProject.log
+        );
         return remoteProject;
       } else {
         toastLog("当前为最新版");
