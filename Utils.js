@@ -425,8 +425,8 @@ function clickBottomScale(x, y, btnTxt) {
 }
 
 // 返回 project.json 解析的对象
-function getProjectConfig() {
-  let path = "./project.json";
+function getProjectConfig(path) {
+  !path && (path = "./project.json");
   if (files.exists(path)) {
     log("找到配置文件:[%s]", path);
     let jsonStr = files.read(path);
@@ -486,7 +486,7 @@ function downloadFromGithub(repo, branch, file) {
   CONTEXT_URLS.forEach((context_url, i) => {
     if (!downloadSuccess) {
       let url = context_url + file;
-      console.time("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");      
+      console.time("脚本[" + url + "]第" + (i + 1) + "次更新: 耗时");
       try {
         res_script = http.get(url, {
           headers: {
@@ -513,6 +513,89 @@ function downloadFromGithub(repo, branch, file) {
   return res_script;
 }
 
+function updateByGit(proejctName) {
+  const APP_NAME = "Pocket Git";
+  toastLog("结束APP:[" + APP_NAME + "]");
+  kill_app(APP_NAME);
+  sleep(2000);
+  toastLog("打开APP:[" + APP_NAME + "]");
+  launchApp(APP_NAME);
+  sleep(3000);
+  let projectBtn = text(proejctName).findOne(2000);
+  if (projectBtn) {
+    toastLog("进入项目:[" + proejctName + "]");
+    click(proejctName);
+    sleep(2000);
+    clickScale(910, 265, "Git菜单");
+    sleep(2000);
+    click("Pull");
+    toastLog("等待更新完成");
+    sleep(10000);
+    toastLog(
+      "请检查通知栏, 成功的情况下会显示[Finished pulling " +
+        proejctName +
+        "], 如果显示[Failed]请稍后重试"
+    );
+    back();
+    sleep(1000);
+    back();
+    sleep(1000);
+  } else {
+    toastLog("没有找到项目[ " + proejctName + "], 更新失败!");
+  }
+}
+
+function updateByHttp() {
+  let project = getProjectConfig();
+  log("project.assets", project.assets);
+  if (project.assets) {
+    let folder = engines.myEngine().cwd() + "/";
+    log("开始获取远程脚本, 保存路径: ", folder);
+    project.assets.forEach((file, index) => {
+      let res_script = downloadFromGithub(REPO, BRANCH, file);
+      if (res_script) {
+        let updateFile = folder + file;
+        log("保存文件路径:", updateFile);
+        files.writeBytes(updateFile, res_script.body.bytes());
+        toastLog("脚本" + file + "更新成功");
+      } else {
+        toastLog("脚本" + file + "更新失败, 请稍后重试");
+        exit();
+      }
+    });
+    toastLog("全部脚本(" + project.assets.length + "个)更新完成");
+  } else {
+    toastLog("无法获取配置文件, 更新失败");
+  }
+}
+
+function hasUpdate(repo, branch, configFile) {
+  !configFile && (configFile = "project.json");
+  toast("正在检查更新");
+  let folder = engines.myEngine().cwd() + "/";
+  console.log("脚本所在路径: ", folder);
+  let project = getProjectConfig("./project.json");
+  if (project.versionName) {
+    try {
+      let res = downloadFromGithub(repo, branch, configFile);
+      res = res.body.json();
+      if (version != project.versionName) {
+        return res;
+      } else {
+        toast("当前为最新版");
+      }
+    } catch (err) {
+      toast("检查更新出错，请手动前往项目地址查看");
+      console.error(err);
+      console.error(err.stack);
+      return;
+    }
+  } else {
+    console.log("无法获取当前版本号, 跳过更新检查");
+  }
+  return;
+}
+
 exports.kill_app = kill_app;
 exports.randomSwipe = randomSwipe;
 exports.isPeakTimeStr = isPeakTimeStr;
@@ -536,3 +619,5 @@ exports.clickBottomScale = clickBottomScale;
 exports.getProjectConfig = getProjectConfig;
 exports.globalLogConfig = globalLogConfig;
 exports.downloadFromGithub = downloadFromGithub;
+exports.updateByGit = updateByGit;
+exports.updateByHttp = updateByHttp;

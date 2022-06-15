@@ -146,41 +146,25 @@ function conPerReq() {
 }
 
 function checkUpdate() {
-  toast("正在检查更新");
-  let folder = engines.myEngine().cwd() + "/";
-  console.log("脚本所在路径: ", folder);
-  if (project.versionName) {
-    try {
-      let res = downloadFromGithub(
-        "/touchren/meituanmaicai",
-        "main",
-        "project.json"
-      );
-      res = res.body.json();
-      const version = res.versionName;
-      const log = res.log;
-      if (version != project.versionName) {
-        var go = confirm("有新的版本:[" + version + "]，马上更新", log);
-        if (go) {
-          if (folder.indexOf("/data/user/") == 0) {
-            console.log("判断脚本为apk打包模式, 使用在线下载更新");
-            engines.execScriptFile("./update_by_http.js");
-          } else {
-            console.log("判断脚本为源码使用模式, 使用Git更新");
-            engines.execScriptFile("./update_by_git.js");
-          }
-          exit();
+  try {
+    let res = hasUpdate("/touchren/meituanmaicai", "main", "proejct.json");
+    if (res) {
+      var go = confirm("有新的版本:[" + res.versionName + "]，马上更新", res.log);
+      if (go) {
+        if (folder.indexOf("/data/user/") == 0) {
+          console.log("判断脚本为apk打包模式, 使用在线下载更新");
+          engines.execScriptFile("./update_by_http.js");
+        } else {
+          console.log("判断脚本为源码使用模式, 使用Git更新");
+          engines.execScriptFile("./update_by_git.js");
         }
-      } else {
-        toast("当前为最新版");
+        exit();
       }
-    } catch (err) {
-      toast("检查更新出错，请手动前往项目地址查看");
-      console.error(err);
-      console.error(err.stack);
-      return;
     }
-  } else {
-    console.log("无法获取当前版本号, 跳过更新检查");
+  } catch (err) {
+    toast("检查更新出错，请手动前往项目地址查看");
+    console.error(err);
+    console.error(err.stack);
+    return;
   }
 }
