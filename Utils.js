@@ -557,6 +557,7 @@ function updateByHttp() {
         let updateFile = folder + file;
         log("保存文件路径:", updateFile);
         files.writeBytes(updateFile, res_script.body.bytes());
+        res_script.close();
         toastLog("脚本" + file + "更新成功");
       } else {
         toastLog("脚本" + file + "更新失败, 请稍后重试");
@@ -578,9 +579,10 @@ function hasUpdate(repo, branch, configFile) {
   if (project.versionName) {
     try {
       let res = downloadFromGithub(repo, branch, configFile);
-      res = res.body.json();
-      if (version != project.versionName) {
-        return res;
+      let remoteProject = res.body.json();
+      res.close();
+      if (remoteProject.versionName != project.versionName) {
+        return remoteProject;
       } else {
         toast("当前为最新版");
       }
