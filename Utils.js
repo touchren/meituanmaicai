@@ -49,7 +49,7 @@ function kill_app(packageName) {
 
     log(app.getAppName(name) + "应用已被关闭");
     sleep(2000);
-    log("执行返回9");
+    log("执行[返回]");
     back();
     commonWait();
   } else {
@@ -621,3 +621,4 @@ exports.globalLogConfig = globalLogConfig;
 exports.downloadFromGithub = downloadFromGithub;
 exports.updateByGit = updateByGit;
 exports.updateByHttp = updateByHttp;
+exports.hasUpdate = hasUpdate;

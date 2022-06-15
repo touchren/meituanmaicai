@@ -4,6 +4,7 @@ let {
   getProjectConfig,
   downloadFromGithub,
   globalLogConfig,
+  hasUpdate,
 } = require("./Utils.js");
 
 globalLogConfig();
@@ -149,7 +150,10 @@ function checkUpdate() {
   try {
     let res = hasUpdate("/touchren/meituanmaicai", "main", "proejct.json");
     if (res) {
-      var go = confirm("有新的版本:[" + res.versionName + "]，马上更新", res.log);
+      var go = confirm(
+        "有新的版本:[" + res.versionName + "]，马上更新",
+        res.log
+      );
       if (go) {
         if (folder.indexOf("/data/user/") == 0) {
           console.log("判断脚本为apk打包模式, 使用在线下载更新");
