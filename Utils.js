@@ -580,7 +580,6 @@ function hasUpdate(repo, branch, configFile) {
     try {
       let body = downloadFromGithub(repo, branch, configFile);
       let remoteProject = body.json();
-      res.close();
       if (remoteProject.versionName != project.versionName) {
         return remoteProject;
       } else {
