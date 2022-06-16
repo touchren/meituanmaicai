@@ -553,14 +553,14 @@ function updateByGit(projectName) {
   }
 }
 
-function updateByHttp() {
+function updateByHttp(repo, branch) {
   let project = getProjectConfig();
   log("project.assets", project.assets);
   if (project.assets) {
     let folder = engines.myEngine().cwd() + "/";
     log("开始获取远程脚本, 保存路径: ", folder);
     project.assets.forEach((file, index) => {
-      let body = downloadFromGithub(REPO, BRANCH, file);
+      let body = downloadFromGithub(repo, branch, file);
       if (body) {
         let updateFile = folder + file;
         log("保存文件路径:", updateFile);

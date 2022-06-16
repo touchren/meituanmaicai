@@ -3,4 +3,4 @@ const BRANCH = "main";
 
 let { updateByHttp } = require("./Utils.js");
 
-updateByHttp();
+updateByHttp(REPO, BRANCH);

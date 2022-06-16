@@ -16,7 +16,6 @@ const OTHER_ALLOW_PACKAGE_NAMES = [
   "com.android.systemui", // 通知栏
 ];
 
-var storage = storages.create("touchren_common");
 var myStorage = storages.create("touchren_mtmc");
 // 最大尝试轮数
 const MAX_ROUND = 3;
@@ -81,14 +80,6 @@ var noItemCount = 0;
 // Note9, S8, 这个值是23
 var scrollViewDepth = 0;
 var SCROLL_VIEW_DEPTH_NOTE20U = 2;
-
-console.setGlobalLogConfig({
-  file:
-    "/storage/emulated/0/脚本/logs/console-" +
-    (new Date().getMonth() + 1) +
-    +new Date().getDate() +
-    ".log",
-});
 
 // 调试期间临时使用, 关闭其他脚本
 engines.all().map((ScriptEngine) => {
@@ -303,7 +294,7 @@ function launchMiniApp() {
   launchApp("微信");
   sleep(1000);
   let miniAppBtn = className("android.widget.Button")
-    .textMatches(APP_NAME + ".+")
+    .textMatches(APP_NAME + ".*")
     .findOnce();
   if (miniAppBtn) {
     miniAppBtn.click();
@@ -329,10 +320,10 @@ function launchMiniApp() {
     }
     if (
       (miniAppBtn = className("android.widget.Button")
-        .textMatches(APP_NAME + ".+")
-        .findOnce())
+        .textMatches(APP_NAME + ".*")
+        .findOne(2000))
     ) {
-      log("常用小程序内找到[%s]", APP_NAME);
+      log("最近使用的小程序内找到[%s]", APP_NAME);
     } else {
       log("点击[搜索小程序]");
       click("搜索小程序");
@@ -344,16 +335,16 @@ function launchMiniApp() {
       sleep(1000);
       miniAppBtn = className("android.widget.Button")
         .textMatches(APP_NAME + ".+")
-        .findOnce();
+        .findOne(2000);
     }
 
     miniAppBtn && miniAppBtn.click();
   }
   let success = text("购物车").findOne(5000);
   if (success) {
-    log("进入[%s]成功", APP_NAME);
+    console.log("进入[%s]成功", APP_NAME);
   } else {
-    error("无法进入[%s]", APP_NAME);
+    console.error("无法进入[%s]", APP_NAME);
     exit();
   }
 }
