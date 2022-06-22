@@ -623,6 +623,7 @@ exports.musicNotify = musicNotify;
 exports.waitCheckLog = waitCheckLog;
 exports.closeClock = closeClock;
 exports.unlock = unlock;
+exports.lock = lock;
 exports.clickScale = clickScale;
 exports.scrollUp = scrollUp;
 exports.scrollDown = scrollDown;

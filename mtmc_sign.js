@@ -21,7 +21,7 @@ unlock();
 game();
 
 function game() {
-  kill_app(APP_NAME);
+  // kill_app(APP_NAME);
   launchApp(APP_NAME);
   sleep(5 * 1000);
   console.time("美团撸羊毛耗时");
@@ -88,7 +88,7 @@ function doInCheckIn() {
       click("微信好友");
       sleep(2000);
       back();
-      sleep(1000);
+      sleep(3000);
       click("知道了");
       sleep(1000);
     } else {
